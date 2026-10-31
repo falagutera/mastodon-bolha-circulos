@@ -320,6 +320,62 @@ func TestLoginFlow(t *testing.T) {
 	}
 }
 
+func TestShareFlow(t *testing.T) {
+	var posted, revoked atomic.Bool
+	var status url.Values
+	inst := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/oauth/token":
+			fmt.Fprint(w, `{"access_token":"tok"}`)
+		case "/api/v1/accounts/verify_credentials":
+			fmt.Fprint(w, `{"username":"guto"}`)
+		case "/api/v1/media":
+			if !strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+				t.Errorf("media: %s", r.Header.Get("Content-Type"))
+			}
+			fmt.Fprint(w, `{"id":"7"}`)
+		case "/api/v1/statuses":
+			r.ParseForm()
+			status = r.PostForm
+			posted.Store(true)
+			fmt.Fprintf(w, `{"url":"http://%s/@guto/1"}`, r.Host)
+		case "/oauth/revoke":
+			revoked.Store(true)
+		}
+	}))
+	defer inst.Close()
+	s, ts, _ := testServer(t, inst.URL)
+	if resp, _ := get(t, ts.URL+"/share"); resp.StatusCode != 303 {
+		t.Fatalf("anonymous share: %d", resp.StatusCode)
+	}
+	value, _ := s.seal("session", session{Account: "guto", Expires: time.Now().Add(time.Hour)})
+	sess := &http.Cookie{Name: sessionCookie, Value: value}
+	resp, _ := get(t, ts.URL+"/share", sess)
+	loc, _ := url.Parse(resp.Header.Get("Location"))
+	if resp.StatusCode != 302 || loc.Query().Get("scope") != shareScope {
+		t.Fatalf("share: %d %s", resp.StatusCode, loc)
+	}
+	if posted.Load() {
+		t.Fatal("posted before the approval")
+	}
+	var state *http.Cookie
+	for _, c := range resp.Cookies() {
+		if c.Name == stateCookie {
+			state = &http.Cookie{Name: c.Name, Value: c.Value}
+		}
+	}
+	resp, _ = get(t, ts.URL+"/auth/callback?code=c&state="+url.QueryEscape(loc.Query().Get("state")), state, sess)
+	if resp.StatusCode != 302 || resp.Header.Get("Location") != inst.URL+"/@guto/1" {
+		t.Fatalf("callback: %d %s", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	if !revoked.Load() {
+		t.Fatal("token not revoked")
+	}
+	if status.Get("media_ids[]") != "7" || status.Get("visibility") != "public" {
+		t.Fatalf("status: %v", status)
+	}
+}
+
 func TestLanguage(t *testing.T) {
 	s, ts, db := testServer(t, "")
 	ask := func(header string, cookies ...*http.Cookie) string {

@@ -12,6 +12,7 @@
     {{end}}</svg>
   <div class="actions">
     <a class="button" href="/circle.png" download="circle-{{.Circle.Self.Username}}.png">{{.T.download}}</a>
+    <a class="button" href="/share">{{.T.share}}</a>
     <form method="post" action="/logout"><button class="plain" type="submit">{{.T.logout}}</button></form>
   </div>
   {{$t := .T}}{{$any := false}}

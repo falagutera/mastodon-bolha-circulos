@@ -39,6 +39,7 @@ func (s *server) routes() http.Handler {
 	}
 	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServerFS(assets)))
 	mux.HandleFunc("GET /login", s.handleLogin)
+	mux.HandleFunc("GET /share", s.handleShare)
 	mux.HandleFunc("GET /auth/callback", s.handleCallback)
 	mux.HandleFunc("POST /logout", s.handleLogout)
 	mux.HandleFunc("GET /circle.png", s.handleImage)

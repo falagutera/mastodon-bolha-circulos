@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -10,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
@@ -22,6 +24,7 @@ const (
 	stateTTL      = 10 * time.Minute
 	sessionTTL    = 4 * time.Hour
 	oauthScope    = "profile"
+	shareScope    = "profile write:media write:statuses"
 )
 
 type session struct {
@@ -32,6 +35,7 @@ type session struct {
 type loginState struct {
 	State    string    `json:"s"`
 	Verifier string    `json:"v"`
+	Share    bool      `json:"h,omitempty"`
 	Expires  time.Time `json:"e"`
 }
 
@@ -103,7 +107,21 @@ func randomToken() string {
 func (s *server) redirectURI() string { return s.cfg.baseURL + "/auth/callback" }
 
 func (s *server) handleLogin(w http.ResponseWriter, r *http.Request) {
-	st := loginState{State: randomToken(), Verifier: randomToken(), Expires: time.Now().Add(stateTTL)}
+	s.authorize(w, r, false)
+}
+
+// handleShare asks the instance for the right to post. It publishes nothing by
+// itself: that only happens after the person approves it on the instance.
+func (s *server) handleShare(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.currentSession(r); !ok {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	s.authorize(w, r, true)
+}
+
+func (s *server) authorize(w http.ResponseWriter, r *http.Request, share bool) {
+	st := loginState{State: randomToken(), Verifier: randomToken(), Share: share, Expires: time.Now().Add(stateTTL)}
 	value, err := s.seal("state", st)
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -115,12 +133,19 @@ func (s *server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		"response_type":         {"code"},
 		"client_id":             {s.cfg.clientID},
 		"redirect_uri":          {s.redirectURI()},
-		"scope":                 {oauthScope},
+		"scope":                 {st.scope()},
 		"state":                 {st.State},
 		"code_challenge":        {base64.RawURLEncoding.EncodeToString(challenge[:])},
 		"code_challenge_method": {"S256"},
 	}
 	http.Redirect(w, r, s.cfg.instance+"/oauth/authorize?"+q.Encode(), http.StatusFound)
+}
+
+func (st loginState) scope() string {
+	if st.Share {
+		return shareScope
+	}
+	return oauthScope
 }
 
 func (s *server) handleCallback(w http.ResponseWriter, r *http.Request) {
@@ -140,23 +165,31 @@ func (s *server) handleCallback(w http.ResponseWriter, r *http.Request) {
 		s.renderError(w, r, http.StatusBadRequest, "expired")
 		return
 	}
+	if q.Get("code") == "" && st.Share {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
 	if q.Get("code") == "" {
 		// The person declined on the instance's consent screen.
 		s.renderError(w, r, http.StatusForbidden, "denied")
 		return
 	}
-	token, err := s.exchangeCode(q.Get("code"), st.Verifier)
+	token, err := s.exchangeCode(q.Get("code"), st.Verifier, st.scope())
 	if err != nil {
 		log.Printf("token exchange: %v", err)
 		s.renderError(w, r, http.StatusBadGateway, "instance")
 		return
 	}
-	// The token is only needed to read the username, so it never outlives this request.
+	// The token is only needed for this request, so it never outlives it.
 	defer s.revokeToken(token)
 	acct, err := s.fetchAccount(token)
 	if err != nil {
 		log.Printf("verify_credentials: %v", err)
 		s.renderError(w, r, http.StatusBadGateway, "instance")
+		return
+	}
+	if st.Share {
+		s.share(w, r, token, acct, st.State)
 		return
 	}
 	value, err := s.seal("session", session{Account: acct, Expires: time.Now().Add(sessionTTL)})
@@ -178,7 +211,7 @@ func (s *server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-func (s *server) exchangeCode(code, verifier string) (string, error) {
+func (s *server) exchangeCode(code, verifier, scope string) (string, error) {
 	form := url.Values{
 		"grant_type":    {"authorization_code"},
 		"code":          {code},
@@ -186,7 +219,7 @@ func (s *server) exchangeCode(code, verifier string) (string, error) {
 		"client_secret": {s.cfg.clientSecret},
 		"redirect_uri":  {s.redirectURI()},
 		"code_verifier": {verifier},
-		"scope":         {oauthScope},
+		"scope":         {scope},
 	}
 	resp, err := s.client.PostForm(s.cfg.instance+"/oauth/token", form)
 	if err != nil {
@@ -232,6 +265,85 @@ func (s *server) fetchAccount(token string) (string, error) {
 		return "", errors.New("empty account")
 	}
 	return out.Username, nil
+}
+
+// share publishes the circle of the account that approved it and opens the post.
+func (s *server) share(w http.ResponseWriter, r *http.Request, token, acct, key string) {
+	lang := language(r, s.cfg.lang)
+	c, err := s.circles.get(r.Context(), acct, lang)
+	if err != nil {
+		s.circleError(w, r, err)
+		return
+	}
+	t := strs(lang)
+	id, err := s.uploadMedia(token, c.PNG, fmt.Sprintf(t["result"], c.Self.DisplayName))
+	if err == nil {
+		var post string
+		if post, err = s.publish(token, id, fmt.Sprintf(t["share_text"], s.cfg.baseURL), key); err == nil {
+			http.Redirect(w, r, post, http.StatusFound)
+			return
+		}
+	}
+	log.Printf("share: %v", err)
+	s.renderError(w, r, http.StatusBadGateway, "instance")
+}
+
+func (s *server) uploadMedia(token string, png []byte, alt string) (string, error) {
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	part, err := form.CreateFormFile("file", "circle.png")
+	if err != nil {
+		return "", err
+	}
+	part.Write(png)
+	form.WriteField("description", alt)
+	form.Close()
+	var out struct {
+		ID string `json:"id"`
+	}
+	if err := s.post(token, "/api/v1/media", form.FormDataContentType(), "", &body, &out); err != nil {
+		return "", err
+	}
+	if out.ID == "" {
+		return "", errors.New("empty media id")
+	}
+	return out.ID, nil
+}
+
+// publish uses the state as the idempotency key: a reloaded callback can't post twice.
+func (s *server) publish(token, media, text, key string) (string, error) {
+	form := url.Values{"status": {text}, "media_ids[]": {media}, "visibility": {"public"}}
+	var out struct {
+		URL string `json:"url"`
+	}
+	if err := s.post(token, "/api/v1/statuses", "application/x-www-form-urlencoded", key, strings.NewReader(form.Encode()), &out); err != nil {
+		return "", err
+	}
+	if !strings.HasPrefix(out.URL, s.cfg.instance+"/") {
+		return s.cfg.instance, nil
+	}
+	return out.URL, nil
+}
+
+func (s *server) post(token, path, kind, key string, body io.Reader, out any) error {
+	req, err := http.NewRequest(http.MethodPost, s.cfg.instance+path, body)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", kind)
+	if key != "" {
+		req.Header.Set("Idempotency-Key", key)
+	}
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("%s: status %d", path, resp.StatusCode)
+	}
+	return json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(out)
 }
 
 func (s *server) revokeToken(token string) {
