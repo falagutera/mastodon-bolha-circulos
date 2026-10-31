@@ -24,17 +24,21 @@ var templateFS embed.FS
 var assetFS embed.FS
 
 type config struct {
-	listen     string
-	instance   string // https://bolha.us
-	domain     string // bolha.us
-	lang       string
-	cacheTTL   time.Duration
-	dbHost     string
-	dbPort     string
-	dbUser     string
-	dbPassword string
-	dbName     string
-	dbSSLMode  string
+	listen       string
+	baseURL      string // https://circles.bolha.us
+	instance     string // https://bolha.us
+	domain       string // bolha.us
+	clientID     string
+	clientSecret string
+	secret       []byte
+	lang         string
+	cacheTTL     time.Duration
+	dbHost       string
+	dbPort       string
+	dbUser       string
+	dbPassword   string
+	dbName       string
+	dbSSLMode    string
 }
 
 func env(key, fallback string) string {
@@ -46,16 +50,20 @@ func env(key, fallback string) string {
 
 func loadConfig() (config, error) {
 	c := config{
-		listen:     env("CIRCLES_LISTEN", ":8080"),
-		instance:   strings.TrimRight(env("CIRCLES_INSTANCE", "https://bolha.us"), "/"),
-		lang:       env("CIRCLES_LANG", "en"),
-		cacheTTL:   time.Hour,
-		dbHost:     os.Getenv("CIRCLES_DB_HOST"),
-		dbPort:     env("CIRCLES_DB_PORT", "5432"),
-		dbUser:     os.Getenv("CIRCLES_DB_USER"),
-		dbPassword: os.Getenv("CIRCLES_DB_PASSWORD"),
-		dbName:     env("CIRCLES_DB_NAME", "mastodon_production"),
-		dbSSLMode:  env("CIRCLES_DB_SSLMODE", "prefer"),
+		listen:       env("CIRCLES_LISTEN", ":8080"),
+		baseURL:      strings.TrimRight(os.Getenv("CIRCLES_BASE_URL"), "/"),
+		clientID:     os.Getenv("CIRCLES_CLIENT_ID"),
+		clientSecret: os.Getenv("CIRCLES_CLIENT_SECRET"),
+		secret:       []byte(os.Getenv("CIRCLES_SECRET")),
+		instance:     strings.TrimRight(env("CIRCLES_INSTANCE", "https://bolha.us"), "/"),
+		lang:         env("CIRCLES_LANG", "en"),
+		cacheTTL:     time.Hour,
+		dbHost:       os.Getenv("CIRCLES_DB_HOST"),
+		dbPort:       env("CIRCLES_DB_PORT", "5432"),
+		dbUser:       os.Getenv("CIRCLES_DB_USER"),
+		dbPassword:   os.Getenv("CIRCLES_DB_PASSWORD"),
+		dbName:       env("CIRCLES_DB_NAME", "mastodon_production"),
+		dbSSLMode:    env("CIRCLES_DB_SSLMODE", "prefer"),
 	}
 	if v := os.Getenv("CIRCLES_CACHE_TTL"); v != "" {
 		d, err := time.ParseDuration(v)
@@ -71,6 +79,14 @@ func loadConfig() (config, error) {
 	c.domain = u.Host
 	if _, err := strconv.Atoi(c.dbPort); err != nil {
 		return c, fmt.Errorf("CIRCLES_DB_PORT: %w", err)
+	}
+	switch {
+	case c.baseURL == "":
+		return c, fmt.Errorf("CIRCLES_BASE_URL is required")
+	case c.clientID == "" || c.clientSecret == "":
+		return c, fmt.Errorf("CIRCLES_CLIENT_ID and CIRCLES_CLIENT_SECRET are required")
+	case len(c.secret) < 32:
+		return c, fmt.Errorf("CIRCLES_SECRET must have at least 32 characters")
 	}
 	if c.dbHost == "" || c.dbUser == "" || c.dbPassword == "" {
 		return c, fmt.Errorf("CIRCLES_DB_HOST, CIRCLES_DB_USER and CIRCLES_DB_PASSWORD are required")
@@ -100,8 +116,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	api := &instanceAPI{base: cfg.instance, client: &http.Client{Timeout: 10 * time.Second}}
-	s := newServer(cfg, tmpl, newBuilder(db, api, cfg))
+	client := &http.Client{Timeout: 10 * time.Second}
+	api := &instanceAPI{base: cfg.instance, client: client}
+	s := newServer(cfg, tmpl, client, newBuilder(db, api, cfg))
 	log.Printf("listening on %s for %s", cfg.listen, cfg.domain)
 	srv := &http.Server{
 		Addr:              cfg.listen,

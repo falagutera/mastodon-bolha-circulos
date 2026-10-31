@@ -4,35 +4,19 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"html/template"
 	"image"
 	"image/png"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 )
-
-func TestParseHandle(t *testing.T) {
-	for in, want := range map[string]string{
-		"guto": "guto", "@guto": "guto", " @guto@bolha.us ": "guto", "guto@BOLHA.US": "guto", "a.b_c": "a.b_c",
-	} {
-		if got, err := parseHandle(in, "bolha.us"); err != nil || got != want {
-			t.Errorf("parseHandle(%q) = %q, %v", in, got, err)
-		}
-	}
-	if _, err := parseHandle("guto@mastodon.social", "bolha.us"); !errors.Is(err, errOtherInstance) {
-		t.Errorf("other instance: %v", err)
-	}
-	for _, in := range []string{"", "@", "a/b", "a b", "../x", "guto.", strings.Repeat("a", 65)} {
-		if _, err := parseHandle(in, "bolha.us"); !errors.Is(err, errBadHandle) {
-			t.Errorf("parseHandle(%q): %v", in, err)
-		}
-	}
-}
 
 func TestRankingQueryFollowsSchema(t *testing.T) {
 	vanilla := buildRankingQuery([]string{"id", "visibility"})
@@ -141,67 +125,165 @@ func (fakeDir) people(_ context.Context, ids []int64) ([]person, error) {
 	return out, nil
 }
 
-func testServer(t *testing.T) (*httptest.Server, *fakeDB) {
+func testServer(t *testing.T, instance string) (*server, *httptest.Server, *fakeDB) {
 	t.Helper()
 	db := &fakeDB{}
-	cfg := config{domain: "bolha.us", lang: "pt", cacheTTL: time.Hour}
+	cfg := config{domain: "bolha.us", lang: "pt", cacheTTL: time.Hour, instance: instance, baseURL: "https://circles.bolha.us",
+		clientID: "id", clientSecret: "secret", secret: []byte(strings.Repeat("k", 32))}
 	b := newBuilder(db, fakeDir{}, cfg)
 	b.fetch = func(context.Context, string) *avatar { return nil }
 	tmpl := template.Must(template.ParseFS(templateFS, "templates/*.html"))
-	ts := httptest.NewServer(newServer(cfg, tmpl, b).routes())
+	s := newServer(cfg, tmpl, &http.Client{Timeout: time.Second}, b)
+	ts := httptest.NewServer(s.routes())
 	t.Cleanup(ts.Close)
-	return ts, db
+	return s, ts, db
 }
 
-func get(t *testing.T, url string) (int, string, http.Header) {
+// get sends the cookies by hand: the app sets __Host- cookies, and the test server is http.
+func get(t *testing.T, url string, cookies ...*http.Cookie) (*http.Response, string) {
 	t.Helper()
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
 	c := http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	resp, err := c.Get(url)
+	resp, err := c.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
 	var b bytes.Buffer
 	b.ReadFrom(resp.Body)
-	return resp.StatusCode, b.String(), resp.Header
+	return resp, b.String()
 }
 
-func TestPages(t *testing.T) {
-	ts, db := testServer(t)
-	if code, body, _ := get(t, ts.URL+"/"); code != 200 || !strings.Contains(body, "Círculos") {
-		t.Fatalf("index: %d", code)
+func sessionFor(t *testing.T, s *server, account string, expires time.Time) *http.Cookie {
+	t.Helper()
+	v, err := s.seal("session", session{Account: account, Expires: expires})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if code, _, h := get(t, ts.URL+"/?handle=@guto@bolha.us"); code != 303 || h.Get("Location") != "/@guto" {
-		t.Fatalf("redirect: %d %s", code, h.Get("Location"))
+	return &http.Cookie{Name: sessionCookie, Value: v}
+}
+
+func TestAnonymousSeesOnlyTheLogin(t *testing.T) {
+	_, ts, db := testServer(t, "")
+	resp, body := get(t, ts.URL+"/")
+	if resp.StatusCode != 200 || !strings.Contains(body, "/login") {
+		t.Fatalf("index: %d", resp.StatusCode)
 	}
-	if code, body, _ := get(t, ts.URL+"/?handle=a@mastodon.social"); code != 422 || !strings.Contains(body, "Só contas da bolha.us") {
-		t.Fatalf("other instance: %d", code)
+	if resp, _ := get(t, ts.URL+"/circle.png"); resp.StatusCode != 401 {
+		t.Fatalf("anonymous image: %d", resp.StatusCode)
 	}
-	code, body, h := get(t, ts.URL+"/@guto")
-	if code != 200 || !strings.Contains(body, "u2@a-very-long-instance-name.far.example") {
-		t.Fatalf("circle: %d", code)
+	if resp, _ := get(t, ts.URL+"/@guto"); resp.StatusCode != 404 {
+		t.Fatalf("public circle page: %d", resp.StatusCode)
+	}
+	if db.calls.Load() != 0 {
+		t.Fatal("anonymous request reached the database")
+	}
+}
+
+func TestBadSessionsAreRejected(t *testing.T) {
+	s, ts, _ := testServer(t, "")
+	expired := sessionFor(t, s, "guto", time.Now().Add(-time.Minute))
+	forged := sessionFor(t, s, "guto", time.Now().Add(time.Hour))
+	forged.Value += "x"
+	state, _ := s.seal("state", session{Account: "guto", Expires: time.Now().Add(time.Hour)})
+	for name, c := range map[string]*http.Cookie{"expired": expired, "forged": forged, "other purpose": {Name: sessionCookie, Value: state}} {
+		if resp, _ := get(t, ts.URL+"/circle.png", c); resp.StatusCode != 401 {
+			t.Errorf("%s session: %d", name, resp.StatusCode)
+		}
+	}
+}
+
+func TestOwnCircle(t *testing.T) {
+	s, ts, db := testServer(t, "")
+	c := sessionFor(t, s, "guto", time.Now().Add(time.Hour))
+	resp, body := get(t, ts.URL+"/", c)
+	if resp.StatusCode != 200 || !strings.Contains(body, "u2@a-very-long-instance-name.far.example") {
+		t.Fatalf("circle: %d", resp.StatusCode)
 	}
 	if strings.Contains(body, "<b>") {
 		t.Fatal("display name not escaped")
 	}
-	if !strings.Contains(h.Get("Content-Security-Policy"), "default-src 'none'") {
-		t.Fatal("missing CSP")
+	if !strings.Contains(resp.Header.Get("Content-Security-Policy"), "default-src 'none'") || resp.Header.Get("Cache-Control") != "no-store" {
+		t.Fatal("missing security headers")
 	}
-	code, body, h = get(t, ts.URL+"/@guto.png")
-	if code != 200 || h.Get("Content-Type") != "image/png" {
-		t.Fatalf("png: %d %s", code, h.Get("Content-Type"))
+	resp, body = get(t, ts.URL+"/circle.png", c)
+	if resp.StatusCode != 200 || resp.Header.Get("Content-Type") != "image/png" {
+		t.Fatalf("png: %d", resp.StatusCode)
 	}
-	img, err := png.Decode(strings.NewReader(body))
-	if err != nil || img.Bounds().Dx() != canvasSize {
+	if img, err := png.Decode(strings.NewReader(body)); err != nil || img.Bounds().Dx() != canvasSize {
 		t.Fatalf("png decode: %v", err)
 	}
 	if db.calls.Load() != 1 {
 		t.Fatalf("expected one build for page + image, got %d", db.calls.Load())
 	}
-	if code, _, _ := get(t, ts.URL+"/@nobody"); code != 404 {
-		t.Fatalf("missing account: %d", code)
+	if resp, _ := get(t, ts.URL+"/", sessionFor(t, s, "nobody", time.Now().Add(time.Hour))); resp.StatusCode != 404 {
+		t.Fatalf("missing account: %d", resp.StatusCode)
 	}
-	if code, _, _ := get(t, ts.URL+"/guto"); code != 422 {
-		t.Fatalf("no @: %d", code)
+}
+
+func TestLoginFlow(t *testing.T) {
+	var revoked atomic.Bool
+	inst := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/oauth/token":
+			fmt.Fprint(w, `{"access_token":"tok"}`)
+		case "/api/v1/accounts/verify_credentials":
+			if r.Header.Get("Authorization") != "Bearer tok" {
+				w.WriteHeader(401)
+				return
+			}
+			fmt.Fprint(w, `{"username":"guto"}`)
+		case "/oauth/revoke":
+			revoked.Store(true)
+		}
+	}))
+	defer inst.Close()
+	_, ts, _ := testServer(t, inst.URL)
+	resp, _ := get(t, ts.URL+"/login")
+	loc, _ := url.Parse(resp.Header.Get("Location"))
+	if resp.StatusCode != 302 || loc.Query().Get("scope") != "profile" || loc.Query().Get("code_challenge") == "" {
+		t.Fatalf("login: %d %s", resp.StatusCode, loc)
+	}
+	var state *http.Cookie
+	for _, c := range resp.Cookies() {
+		if c.Name == stateCookie {
+			state = &http.Cookie{Name: c.Name, Value: c.Value}
+		}
+	}
+	if resp, _ := get(t, ts.URL+"/auth/callback?code=c&state=wrong", state); resp.StatusCode != 400 {
+		t.Fatalf("wrong state: %d", resp.StatusCode)
+	}
+	resp, _ = get(t, ts.URL+"/auth/callback?code=c&state="+url.QueryEscape(loc.Query().Get("state")), state)
+	if resp.StatusCode != 302 || resp.Header.Get("Location") != "/" {
+		t.Fatalf("callback: %d", resp.StatusCode)
+	}
+	var sess *http.Cookie
+	for _, c := range resp.Cookies() {
+		if c.Name == sessionCookie {
+			sess = &http.Cookie{Name: c.Name, Value: c.Value}
+		}
+	}
+	if sess == nil || !revoked.Load() {
+		t.Fatalf("session %v revoked %v", sess, revoked.Load())
+	}
+	if resp, _ := get(t, ts.URL+"/circle.png", sess); resp.StatusCode != 200 {
+		t.Fatalf("after login: %d", resp.StatusCode)
+	}
+}
+
+func TestLogoutRefusesOtherSites(t *testing.T) {
+	_, ts, _ := testServer(t, "")
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/logout", nil)
+	req.Header.Set("Sec-Fetch-Site", "cross-site")
+	resp, err := http.DefaultTransport.RoundTrip(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 403 {
+		t.Fatalf("cross-site logout: %d", resp.StatusCode)
 	}
 }

@@ -3,36 +3,13 @@ package main
 import (
 	"bytes"
 	"context"
-	"errors"
 	"image/png"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
-
-var (
-	errOtherInstance = errors.New("account from another instance")
-	errBadHandle     = errors.New("invalid handle")
-)
-
-var usernameRe = regexp.MustCompile(`^[A-Za-z0-9_]+([A-Za-z0-9_.-]*[A-Za-z0-9_])?$`)
-
-// parseHandle accepts guto, @guto and @guto@bolha.us. Only accounts of this
-// instance get a circle.
-func parseHandle(in, domain string) (string, error) {
-	in = strings.TrimPrefix(strings.TrimSpace(in), "@")
-	user, host, remote := strings.Cut(in, "@")
-	if remote && !strings.EqualFold(host, domain) {
-		return "", errOtherInstance
-	}
-	if len(user) > 64 || !usernameRe.MatchString(user) {
-		return "", errBadHandle
-	}
-	return user, nil
-}
 
 type ring struct {
 	Name   string
@@ -93,7 +70,7 @@ func newBuilder(db database, dir directory, c config) *builder {
 		db:      db,
 		dir:     dir,
 		fetch:   func(ctx context.Context, url string) *avatar { return fetchAvatar(ctx, client, url) },
-		host:    c.domain,
+		host:    strings.TrimPrefix(strings.TrimPrefix(c.baseURL, "https://"), "http://"),
 		ttl:     c.cacheTTL,
 		slots:   make(chan struct{}, 2),
 		maxKeep: 64,

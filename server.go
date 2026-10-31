@@ -9,19 +9,18 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
-	"net/url"
 	"strconv"
-	"strings"
 )
 
 type server struct {
 	cfg     config
 	tmpl    *template.Template
+	client  *http.Client
 	circles *builder
 }
 
-func newServer(cfg config, tmpl *template.Template, b *builder) *server {
-	return &server{cfg: cfg, tmpl: tmpl, circles: b}
+func newServer(cfg config, tmpl *template.Template, client *http.Client, b *builder) *server {
+	return &server{cfg: cfg, tmpl: tmpl, client: client, circles: b}
 }
 
 func (s *server) routes() http.Handler {
@@ -31,22 +30,25 @@ func (s *server) routes() http.Handler {
 	})
 	mux.HandleFunc("GET /robots.txt", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		fmt.Fprint(w, "User-agent: *\nDisallow: /@\n")
+		fmt.Fprint(w, "User-agent: *\nDisallow: /\n")
 	})
 	assets, err := fs.Sub(assetFS, "assets")
 	if err != nil {
 		panic(err)
 	}
 	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServerFS(assets)))
+	mux.HandleFunc("GET /login", s.handleLogin)
+	mux.HandleFunc("GET /auth/callback", s.handleCallback)
+	mux.HandleFunc("POST /logout", s.handleLogout)
+	mux.HandleFunc("GET /circle.png", s.handleImage)
 	mux.HandleFunc("GET /{$}", s.handleIndex)
-	mux.HandleFunc("GET /{path}", s.handleCircle)
 	return securityHeaders(mux)
 }
 
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
-		h.Set("Cache-Control", "public, max-age=300")
+		h.Set("Cache-Control", "no-store")
 		h.Set("X-Robots-Tag", "noindex, nofollow")
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "no-referrer")
@@ -58,10 +60,8 @@ func securityHeaders(next http.Handler) http.Handler {
 type pageData struct {
 	T       map[string]string
 	Domain  string
-	Handle  string
 	Message string
 	Circle  *circle
-	Image   string
 }
 
 func (s *server) page() pageData {
@@ -80,83 +80,51 @@ func (s *server) render(w http.ResponseWriter, status int, name string, data pag
 	w.Write(buf.Bytes())
 }
 
-func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
+func (s *server) renderError(w http.ResponseWriter, status int, key string) {
 	d := s.page()
-	in := r.URL.Query().Get("handle")
-	if in == "" {
-		s.render(w, http.StatusOK, "index.html", d)
-		return
-	}
-	user, err := parseHandle(in, s.cfg.domain)
-	if err != nil {
-		d.Handle = in
-		d.Message = s.handleError(err, d.T)
-		s.render(w, http.StatusUnprocessableEntity, "index.html", d)
-		return
-	}
-	http.Redirect(w, r, "/@"+url.PathEscape(user), http.StatusSeeOther)
+	d.Message = d.T["error_"+key]
+	s.render(w, status, "index.html", d)
 }
 
-func (s *server) handleCircle(w http.ResponseWriter, r *http.Request) {
-	path := r.PathValue("path")
-	wantsPNG := strings.HasSuffix(path, ".png")
-	name, ok := strings.CutPrefix(strings.TrimSuffix(path, ".png"), "@")
+func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
+	sess, ok := s.currentSession(r)
 	if !ok {
-		s.fail(w, r, errBadHandle, wantsPNG)
+		s.render(w, http.StatusOK, "index.html", s.page())
 		return
 	}
-	user, err := parseHandle(name, s.cfg.domain)
+	c, err := s.circles.get(r.Context(), sess.Account)
 	if err != nil {
-		s.fail(w, r, err, wantsPNG)
-		return
-	}
-	c, err := s.circles.get(r.Context(), user)
-	if err != nil {
-		s.fail(w, r, err, wantsPNG)
-		return
-	}
-	if wantsPNG {
-		w.Header().Set("Content-Type", "image/png")
-		w.Header().Set("Content-Length", strconv.Itoa(len(c.PNG)))
-		w.Write(c.PNG)
+		s.circleError(w, r, err)
 		return
 	}
 	d := s.page()
 	d.Circle = c
-	d.Image = "/@" + url.PathEscape(user) + ".png"
 	s.render(w, http.StatusOK, "circle.html", d)
 }
 
-func (s *server) handleError(err error, t map[string]string) string {
-	switch {
-	case errors.Is(err, errOtherInstance):
-		return fmt.Sprintf(t["error_instance"], s.cfg.domain)
-	case errors.Is(err, errNoAccount):
-		return fmt.Sprintf(t["error_notfound"], s.cfg.domain)
-	case errors.Is(err, errBadHandle):
-		return t["error_handle"]
+func (s *server) handleImage(w http.ResponseWriter, r *http.Request) {
+	sess, ok := s.currentSession(r)
+	if !ok {
+		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
 	}
-	return t["error_unavailable"]
+	c, err := s.circles.get(r.Context(), sess.Account)
+	if err != nil {
+		s.circleError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Content-Length", strconv.Itoa(len(c.PNG)))
+	w.Write(c.PNG)
 }
 
-func (s *server) fail(w http.ResponseWriter, r *http.Request, err error, wantsPNG bool) {
-	status := http.StatusBadGateway
+func (s *server) circleError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
-	case errors.Is(err, errNoAccount):
-		status = http.StatusNotFound
-	case errors.Is(err, errOtherInstance), errors.Is(err, errBadHandle):
-		status = http.StatusUnprocessableEntity
 	case errors.Is(err, context.Canceled):
-		return
+	case errors.Is(err, errNoAccount):
+		s.renderError(w, http.StatusNotFound, "account")
 	default:
-		log.Printf("circle %s: %v", r.URL.Path, err)
+		log.Printf("circle: %v", err)
+		s.renderError(w, http.StatusBadGateway, "unavailable")
 	}
-	w.Header().Set("Cache-Control", "no-store")
-	if wantsPNG {
-		http.Error(w, http.StatusText(status), status)
-		return
-	}
-	d := s.page()
-	d.Message = s.handleError(err, d.T)
-	s.render(w, status, "index.html", d)
 }

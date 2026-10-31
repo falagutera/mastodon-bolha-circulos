@@ -4,7 +4,7 @@
 stages: [test, build]
 
 variables:
-  CIRCLES_VERSION: "0.1.0"
+  CIRCLES_VERSION: "0.2.0"
 
 test:
   stage: test
