@@ -14,11 +14,11 @@ button.plain { background: none; color: var(--accent); font-weight: 400; padding
 .lede { max-width: 860px; }
 .circle { display: block; width: 100%; height: auto; }
 .actions { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; }
-.ring { max-width: 760px; width: 100%; display: flex; flex-direction: column; gap: 10px; }
+.ring { max-width: 860px; width: 100%; display: flex; flex-direction: column; gap: 10px; }
 .ring h2 { font-size: 1.2rem; display: flex; align-items: baseline; gap: 10px; }
 .count { font-family: var(--mono); font-size: 0.78rem; font-weight: 500; color: var(--muted); }
 .ring ol { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
-.ring li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: baseline; gap: 2px 20px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.ring li { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); align-items: baseline; gap: 2px 20px; padding: 11px 0; border-bottom: 1px solid var(--line); }
 .name { font-weight: 600; text-decoration: none; min-width: 0; overflow-wrap: anywhere; }
 .name:hover { text-decoration: underline; }
 .handle { font-family: var(--mono); font-size: 0.84rem; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
