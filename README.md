@@ -46,6 +46,16 @@ You need Docker, and network access from it to your Mastodon PostgreSQL.
 
 4. Point your reverse proxy at `127.0.0.1:8080`. It must serve HTTPS: the session cookie needs it.
 
+### Prebuilt image
+
+Every release is published, so you don't need to build it. In `docker-compose.yml`, replace the `build` and `image` lines with:
+
+```yaml
+image: registry.gutocarvalho.net/open/circles:latest
+```
+
+For a fixed version, use a tag such as `0.6.0-808`.
+
 ## How it works
 
 - The score is the sum of 1.0 per favourite, 1.1 per reply and 1.3 per boost on the latest 70 public posts, ignoring bots, suspended and limited accounts. The closest 49 people fill rings of 8, 15 and 26, and the closest 8 are named on the card.
