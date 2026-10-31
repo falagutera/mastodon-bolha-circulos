@@ -7,6 +7,7 @@ import (
 	"image/png"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -175,8 +176,8 @@ func (b *builder) compose(ctx context.Context, username string) (*circle, error)
 	if err != nil {
 		return nil, err
 	}
-	if len(people) == 0 {
-		return nil, errNoAccount
+	if len(people) == 0 || people[0].ID != strconv.FormatInt(id, 10) {
+		return nil, errNoAccount // never put someone else in the center
 	}
 	self, rest := people[0], people[1:]
 	rings := splitRings(rest)

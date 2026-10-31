@@ -89,6 +89,29 @@ func TestFitText(t *testing.T) {
 	}
 }
 
+func TestDecodeAvatarDownscales(t *testing.T) {
+	var buf bytes.Buffer
+	png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 800, 800)))
+	a := decodeAvatar(buf.Bytes())
+	if a == nil || a.img.Bounds().Dx() != 2*selfRadius {
+		t.Fatalf("avatar not downscaled: %+v", a)
+	}
+}
+
+type dirWithoutSelf struct{ fakeDir }
+
+func (d dirWithoutSelf) people(ctx context.Context, ids []int64) ([]person, error) {
+	return d.fakeDir.people(ctx, ids[1:])
+}
+
+func TestMissingSelfIsNotReplaced(t *testing.T) {
+	b := newBuilder(&fakeDB{}, dirWithoutSelf{}, config{domain: "bolha.us", cacheTTL: time.Hour})
+	b.fetch = func(context.Context, string) *avatar { return nil }
+	if _, err := b.get(context.Background(), "guto"); !errors.Is(err, errNoAccount) {
+		t.Fatalf("got %v", err)
+	}
+}
+
 type fakeDB struct{ calls atomic.Int32 }
 
 func (f *fakeDB) accountID(_ context.Context, u string) (int64, error) {

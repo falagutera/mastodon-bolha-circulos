@@ -27,7 +27,7 @@ const (
 	canvasSize   = 1000
 	selfRadius   = 110
 	maxAvatar    = 5 << 20
-	maxDimension = 4096
+	maxDimension = 1024
 )
 
 var (
@@ -95,7 +95,10 @@ func decodeAvatar(body []byte) *avatar {
 	if err != nil {
 		return nil
 	}
-	return &avatar{img: img}
+	// Keep only what the largest disc needs, a circle holds 50 of these.
+	small := image.NewRGBA(image.Rect(0, 0, 2*selfRadius, 2*selfRadius))
+	xdraw.CatmullRom.Scale(small, small.Bounds(), img, img.Bounds(), xdraw.Src, nil)
+	return &avatar{img: small}
 }
 
 // drawCircle lays out the rings: same geometry as the original Fedi Circle
