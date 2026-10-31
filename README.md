@@ -18,8 +18,14 @@ You need Docker, and network access from it to your Mastodon PostgreSQL.
    ALTER ROLE circles SET default_transaction_read_only = on;
    GRANT CONNECT ON DATABASE mastodon_production TO circles;
    GRANT USAGE ON SCHEMA public TO circles;
-   GRANT SELECT ON accounts, statuses, favourites TO circles;
+   GRANT SELECT (id, username, domain, suspended_at, silenced_at, actor_type) ON accounts TO circles;
+   GRANT SELECT (id, account_id, reblog_of_id, in_reply_to_id, reply, visibility, deleted_at) ON statuses TO circles;
+   GRANT SELECT (account_id, status_id) ON favourites TO circles;
    ```
+
+   Those tables also hold private keys and direct messages, so grant columns, never whole tables.
+   Forks that restrict posts further need those columns too, or circles refuses to start. On
+   bolha.us: `GRANT SELECT (local_only, expires_at) ON statuses TO circles;`.
 
    Allow it in `pg_hba.conf` (and in pgbouncer's user list if you use one; transaction mode works).
 

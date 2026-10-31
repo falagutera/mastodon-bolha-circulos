@@ -10,9 +10,11 @@ import (
 	"image/png"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -383,4 +385,64 @@ func TestInstanceIsRequired(t *testing.T) {
 	if _, err := loadConfig(); err == nil || !strings.Contains(err.Error(), "CIRCLES_INSTANCE") {
 		t.Fatalf("started without an instance: %v", err)
 	}
+}
+
+func TestMediaClientRefusesPrivateAddresses(t *testing.T) {
+	for _, a := range []string{"127.0.0.1", "10.42.0.1", "192.168.99.30", "169.254.169.254", "100.64.0.1", "::1", "fd00::1", "fe80::1", "::ffff:10.0.0.1", "0.0.0.0"} {
+		if publicAddress(netip.MustParseAddr(a)) {
+			t.Errorf("%s counts as public", a)
+		}
+	}
+	for _, a := range []string{"15.235.51.205", "2606:4700::1"} {
+		if !publicAddress(netip.MustParseAddr(a)) {
+			t.Errorf("%s counts as private", a)
+		}
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer ts.Close()
+	if resp, err := mediaClient(time.Second).Get(ts.URL); err == nil {
+		resp.Body.Close()
+		t.Fatal("reached a loopback address")
+	}
+}
+
+type panicDir struct{ fakeDir }
+
+func (panicDir) people(context.Context, []int64) ([]person, error) { panic("bug") }
+
+func TestPanicDoesNotStopTheServer(t *testing.T) {
+	b := newBuilder(&fakeDB{}, panicDir{}, config{domain: "bolha.us", cacheTTL: time.Hour})
+	if _, err := b.get(context.Background(), "guto", "en"); !errors.Is(err, errBuildFailed) {
+		t.Fatalf("err = %v", err)
+	}
+	if len(b.cache) != 0 {
+		t.Fatal("a failed circle stayed in the cache")
+	}
+	if len(b.slots) != 0 {
+		t.Fatal("the build slot was not released")
+	}
+}
+
+func TestAvatarPanicCostsOneAvatar(t *testing.T) {
+	b := newBuilder(&fakeDB{}, fakeDir{}, config{domain: "bolha.us", cacheTTL: time.Hour})
+	b.fetch = func(context.Context, string) *avatar { panic("bug") }
+	if got := b.loadAvatars(context.Background(), []person{{ID: "1"}}); got["1"] != nil {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestConcurrentBuilds(t *testing.T) {
+	b := newBuilder(&fakeDB{}, fakeDir{}, config{domain: "bolha.us", cacheTTL: time.Hour})
+	b.fetch = func(context.Context, string) *avatar { return nil }
+	var wg sync.WaitGroup
+	for _, u := range []string{"a", "b", "c", "d"} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := b.get(context.Background(), u, "en"); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	wg.Wait()
 }

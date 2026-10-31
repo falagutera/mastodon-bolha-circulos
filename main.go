@@ -112,6 +112,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if err := db.check(context.Background()); err != nil {
+		log.Fatal(err)
+	}
 	tmpl, err := template.ParseFS(templateFS, "templates/*.html")
 	if err != nil {
 		log.Fatal(err)

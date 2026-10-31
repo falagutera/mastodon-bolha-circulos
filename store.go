@@ -21,8 +21,7 @@ const (
 
 var errNoAccount = errors.New("account not found")
 
-// store reads the Mastodon database. It only ever needs SELECT on accounts,
-// statuses and favourites.
+// store reads the Mastodon database. The README lists the columns it needs.
 type store struct {
 	pool *pgxpool.Pool
 
@@ -65,6 +64,18 @@ func (s *store) accountID(ctx context.Context, username string) (int64, error) {
 	return id, err
 }
 
+// check runs both queries once, so a missing permission stops the start instead
+// of failing on someone's circle.
+func (s *store) check(ctx context.Context) error {
+	if _, err := s.accountID(ctx, ""); err != nil && !errors.Is(err, errNoAccount) {
+		return fmt.Errorf("reading accounts: %w", err)
+	}
+	if _, err := s.ranking(ctx, 0); err != nil {
+		return fmt.Errorf("reading the ranking: %w", err)
+	}
+	return nil
+}
+
 // ranking returns the people closest to an account, closest first.
 func (s *store) ranking(ctx context.Context, accountID int64) ([]int64, error) {
 	q, err := s.rankingQuery(ctx)
@@ -84,9 +95,11 @@ func (s *store) rankingQuery(ctx context.Context) (string, error) {
 	if s.query != "" {
 		return s.query, nil
 	}
+	// The catalog lists every column. information_schema hides the ones the user
+	// can't read, which would silently drop a filter below.
 	rows, err := s.pool.Query(ctx, `
-		SELECT column_name::text FROM information_schema.columns
-		WHERE table_schema = 'public' AND table_name = 'statuses'`)
+		SELECT attname::text FROM pg_attribute
+		WHERE attrelid = 'public.statuses'::regclass AND attnum > 0 AND NOT attisdropped`)
 	if err != nil {
 		return "", err
 	}
@@ -95,7 +108,7 @@ func (s *store) rankingQuery(ctx context.Context) (string, error) {
 		return "", err
 	}
 	if len(columns) == 0 {
-		return "", errors.New("the database user can't read the statuses table")
+		return "", errors.New("the statuses table has no columns")
 	}
 	s.query = buildRankingQuery(columns)
 	return s.query, nil

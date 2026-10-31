@@ -86,7 +86,7 @@ type avatar struct{ img image.Image }
 // fetchAvatar returns nil when the image can't be used. The person then gets a
 // disc with their initial, so one broken avatar doesn't cost a whole circle.
 func fetchAvatar(ctx context.Context, client *http.Client, url string) *avatar {
-	if !strings.HasPrefix(url, "https://") && !strings.HasPrefix(url, "http://") {
+	if !strings.HasPrefix(url, "https://") {
 		return nil
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)

@@ -3,13 +3,17 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
+	"image"
 	"image/png"
-	"net/http"
+	"log"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
+
+var errBuildFailed = errors.New("circle build failed")
 
 type ring struct {
 	Name   string
@@ -65,8 +69,12 @@ type builder struct {
 	cache map[string]*entry
 }
 
+// faces guards the font faces, which keep a glyph cache and can't be shared by
+// two builds at once.
+var faces sync.Mutex
+
 func newBuilder(db database, dir directory, c config) *builder {
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := mediaClient(5 * time.Second)
 	return &builder{
 		db:      db,
 		dir:     dir,
@@ -129,16 +137,22 @@ func (b *builder) evict() {
 
 func (b *builder) build(key, username, lang string, e *entry) {
 	defer close(e.done)
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("circle of %s: %v", username, r)
+			e.result, e.err = nil, errBuildFailed
+		}
+		if e.err != nil {
+			b.mu.Lock()
+			delete(b.cache, key) // only successful circles stay
+			b.mu.Unlock()
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	b.slots <- struct{}{}
 	defer func() { <-b.slots }()
 	e.result, e.err = b.compose(ctx, username, lang)
-	if e.err != nil {
-		b.mu.Lock()
-		delete(b.cache, key) // only successful circles stay
-		b.mu.Unlock()
-	}
 }
 
 func (b *builder) compose(ctx context.Context, username, lang string) (*circle, error) {
@@ -159,7 +173,8 @@ func (b *builder) compose(ctx context.Context, username, lang string) (*circle, 
 	}
 	self, rest := people[0], people[1:]
 	rings := splitRings(rest)
-	img := drawCircle(self, rings, b.loadAvatars(ctx, append([]person{self}, rest...)), b.host, newCardText(lang))
+	avatars := b.loadAvatars(ctx, append([]person{self}, rest...))
+	img, areas := drawLocked(self, rings, avatars, b.host, newCardText(lang))
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
 		return nil, err
@@ -167,9 +182,15 @@ func (b *builder) compose(ctx context.Context, username, lang string) (*circle, 
 	return &circle{
 		Self:  self,
 		Rings: []ring{{"inner", rings[0]}, {"middle", rings[1]}, {"outer", rings[2]}},
-		Spots: spots(self, rings),
+		Spots: areas,
 		PNG:   buf.Bytes(),
 	}, nil
+}
+
+func drawLocked(self person, rings [3][]person, avatars map[string]*avatar, host string, t cardText) (*image.RGBA, []spot) {
+	faces.Lock()
+	defer faces.Unlock()
+	return drawCircle(self, rings, avatars, host, t), spots(self, rings)
 }
 
 func (b *builder) loadAvatars(ctx context.Context, people []person) map[string]*avatar {
@@ -185,6 +206,11 @@ func (b *builder) loadAvatars(ctx context.Context, people []person) map[string]*
 			defer wg.Done()
 			limit <- struct{}{}
 			defer func() { <-limit }()
+			defer func() {
+				if r := recover(); r != nil { // a decoder bug costs one avatar
+					log.Printf("avatar of %s: %v", p.ID, r)
+				}
+			}()
 			a := b.fetch(ctx, p.Avatar)
 			mu.Lock()
 			out[p.ID] = a
