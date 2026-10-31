@@ -4,7 +4,8 @@
   --accent: #8A6300; --accent-soft: #FCEFC2; --fill: #F5B301; --on-fill: #20242B;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  /* :root:root outranks the dark theme selector in artefatos.css. */
+  :root:root {
     --bg: #14161B; --surface: #1B1E25; --ink: #ECEEF1; --muted: #99A0A9; --line: #2C313B;
     --accent: #FFC72C; --accent-soft: #3A3416; --fill: #FFC72C; --on-fill: #14161B;
   }
