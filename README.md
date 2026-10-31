@@ -42,7 +42,7 @@ You need Docker, and network access from it to your Mastodon PostgreSQL.
 
 ## How it works
 
-- The score is the sum of 1.0 per favourite, 1.1 per reply and 1.3 per boost on the latest 70 public posts, ignoring bots, suspended and limited accounts. The closest 49 people fill rings of 8, 15 and 26.
+- The score is the sum of 1.0 per favourite, 1.1 per reply and 1.3 per boost on the latest 70 public posts, ignoring bots, suspended and limited accounts. The closest 49 people fill rings of 8, 15 and 26, and the closest 8 are named on the card.
 - It only counts what an anonymous visitor can see: public and unlisted posts. If the schema has `local_only` or `expires_at` (forks like ours add them) those posts are left out too. The columns are detected on the first circle, so restart after an upgrade that adds one.
 - Avatars and display names come from the instance's public API, in two calls. An avatar that can't be used (AVIF, too big, offline) becomes a disc with the person's initial.
 - Sign-in is OAuth with PKCE and the minimal `profile` scope. The token is used once to read the username, then revoked. The session is a signed cookie that lasts 4 hours.

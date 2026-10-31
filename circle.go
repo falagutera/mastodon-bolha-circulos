@@ -56,6 +56,7 @@ type builder struct {
 	dir     directory
 	fetch   func(ctx context.Context, url string) *avatar
 	host    string
+	text    cardText
 	ttl     time.Duration
 	slots   chan struct{}
 	maxKeep int
@@ -71,6 +72,7 @@ func newBuilder(db database, dir directory, c config) *builder {
 		dir:     dir,
 		fetch:   func(ctx context.Context, url string) *avatar { return fetchAvatar(ctx, client, url) },
 		host:    strings.TrimPrefix(strings.TrimPrefix(c.baseURL, "https://"), "http://"),
+		text:    newCardText(c.lang),
 		ttl:     c.cacheTTL,
 		slots:   make(chan struct{}, 2),
 		maxKeep: 64,
@@ -158,7 +160,7 @@ func (b *builder) compose(ctx context.Context, username string) (*circle, error)
 	}
 	self, rest := people[0], people[1:]
 	rings := splitRings(rest)
-	img := drawCircle(self, rings, b.loadAvatars(ctx, append([]person{self}, rest...)), b.host)
+	img := drawCircle(self, rings, b.loadAvatars(ctx, append([]person{self}, rest...)), b.host, b.text)
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
 		return nil, err

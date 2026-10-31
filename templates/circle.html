@@ -3,7 +3,7 @@
   <p class="lede"><a href="{{.Circle.Self.URL}}" rel="noopener">@{{.Circle.Self.Acct}}</a></p>
 </header>
 <main class="result">
-  <img class="circle" src="/circle.png" width="1000" height="1000" alt="{{printf .T.result .Circle.Self.DisplayName}}">
+  <img class="circle" src="/circle.png" width="1600" height="1000" alt="{{printf .T.result .Circle.Self.DisplayName}}">
   <div class="actions">
     <a class="button" href="/circle.png" download="circle-{{.Circle.Self.Username}}.png">{{.T.download}}</a>
     <form method="post" action="/logout"><button class="plain" type="submit">{{.T.logout}}</button></form>

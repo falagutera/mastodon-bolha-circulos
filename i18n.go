@@ -4,6 +4,9 @@ var translations = map[string]map[string]string{
 	"en": {
 		"lang":              "en",
 		"title":             "Circles",
+		"card_eyebrow":      "Fediverse circle",
+		"card_closest":      "Closest to you",
+		"card_more":         "+ %d people in the outer rings",
 		"lede":              "See who is closest to you on %s, from the favourites, replies and boosts on your latest public posts.",
 		"login_button":      "Sign in with your account",
 		"privacy":           "Each person only sees their own circle. Only your username is read, and the access token is revoked right after. People from other instances can appear in your circle.",
@@ -25,6 +28,9 @@ var translations = map[string]map[string]string{
 	"pt": {
 		"lang":              "pt-BR",
 		"title":             "Círculos",
+		"card_eyebrow":      "Círculo no fediverso",
+		"card_closest":      "Mais perto de você",
+		"card_more":         "+ %d pessoas nos anéis de fora",
 		"lede":              "Veja quem está mais perto de você na %s, pelos favoritos, respostas e impulsos nos seus últimos posts públicos.",
 		"login_button":      "Entrar com a sua conta",
 		"privacy":           "Cada pessoa só vê o próprio círculo. Só lemos o seu nome de usuário, e o token de acesso é revogado logo em seguida. Pessoas de outras instâncias podem aparecer no seu círculo.",
@@ -43,6 +49,11 @@ var translations = map[string]map[string]string{
 		"error_account":     "Esta conta não pode desenhar um círculo.",
 		"error_unavailable": "Não deu certo. Tente de novo em instantes.",
 	},
+}
+
+func newCardText(lang string) cardText {
+	t := strs(lang)
+	return cardText{Eyebrow: t["card_eyebrow"], Closest: t["card_closest"], More: t["card_more"]}
 }
 
 func strs(lang string) map[string]string {

@@ -6,6 +6,7 @@ RUN go mod download
 COPY *.go ./
 COPY templates ./templates
 COPY assets ./assets
+COPY fonts ./fonts
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /circles .
 
 # --- runtime -----------------------------------------------------------------

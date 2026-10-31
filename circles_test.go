@@ -59,16 +59,26 @@ func TestDecodeAvatarRejectsGarbageAndHuge(t *testing.T) {
 	}
 }
 
+func TestDrawable(t *testing.T) {
+	for in, want := range map[string]string{
+		"felipe siles 🌵": "felipe siles", "Carlos 🇧🇷 Nogueira": "Carlos Nogueira", "José ❤️": "José", "/mastodon/guto": "/mastodon/guto",
+	} {
+		if got := drawable(in); got != want {
+			t.Errorf("drawable(%q) = %q", in, got)
+		}
+	}
+}
+
 func TestFitText(t *testing.T) {
 	long := "@" + strings.Repeat("alguem", 20) + "@" + strings.Repeat("instancia", 20) + ".example"
-	got := fitText(labelFace, long, 120)
-	if textWidth(labelFace, got) > 120 || !strings.HasSuffix(got, "…") {
+	got := fitText(rowDimFace, long, 120)
+	if textWidth(rowDimFace, got) > 120 || !strings.HasSuffix(got, "…") {
 		t.Fatalf("got %q", got)
 	}
-	if got := fitText(labelFace, "@guto", 120); got != "@guto" {
+	if got := fitText(rowDimFace, "@guto", 120); got != "@guto" {
 		t.Fatalf("short text changed: %q", got)
 	}
-	if got := fitText(labelFace, "ação longa", 1); got != "…" {
+	if got := fitText(rowDimFace, "ação longa", 1); got != "…" {
 		t.Fatalf("tiny width: %q", got)
 	}
 }
@@ -213,7 +223,7 @@ func TestOwnCircle(t *testing.T) {
 	if resp.StatusCode != 200 || resp.Header.Get("Content-Type") != "image/png" {
 		t.Fatalf("png: %d", resp.StatusCode)
 	}
-	if img, err := png.Decode(strings.NewReader(body)); err != nil || img.Bounds().Dx() != canvasSize {
+	if img, err := png.Decode(strings.NewReader(body)); err != nil || img.Bounds().Dx() != canvasWidth {
 		t.Fatalf("png decode: %v", err)
 	}
 	if db.calls.Load() != 1 {
