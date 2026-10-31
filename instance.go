@@ -28,6 +28,7 @@ type person struct {
 
 type instanceAPI struct {
 	base   string
+	domain string
 	client *http.Client
 }
 
@@ -45,6 +46,9 @@ func (a *instanceAPI) people(ctx context.Context, ids []int64) ([]person, error)
 			return nil, err
 		}
 		for _, p := range batch {
+			if !strings.Contains(p.Acct, "@") {
+				p.Acct += "@" + a.domain // local accounts come without it
+			}
 			found[p.ID] = p
 		}
 	}

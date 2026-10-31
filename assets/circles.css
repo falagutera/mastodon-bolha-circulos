@@ -14,9 +14,14 @@ button.plain { background: none; color: var(--accent); font-weight: 400; padding
 .lede { max-width: 860px; }
 .circle { display: block; width: 100%; height: auto; }
 .actions { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; }
-.people { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 22px; }
-.people li { min-width: 0; overflow-wrap: anywhere; }
-.acct { display: block; font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
+.ring { max-width: 640px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+.ring h2 { font-size: 1.2rem; display: flex; align-items: baseline; gap: 10px; }
+.count { font-family: var(--mono); font-size: 0.78rem; font-weight: 500; color: var(--muted); }
+.ring ol { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.ring li { display: flex; justify-content: space-between; align-items: baseline; gap: 20px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.name { font-weight: 600; text-decoration: none; min-width: 0; overflow-wrap: anywhere; }
+.name:hover { text-decoration: underline; }
+.handle { font-family: var(--mono); font-size: 0.84rem; color: var(--muted); text-align: right; min-width: 0; overflow-wrap: anywhere; }
 .foot { display: flex; flex-direction: row; flex-wrap: wrap; gap: 18px; border-top: 1px solid var(--line); padding-top: 18px; font-size: 0.9rem; }
 /* Same selector as bolha.io. */
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }

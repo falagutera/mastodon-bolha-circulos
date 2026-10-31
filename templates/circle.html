@@ -15,11 +15,11 @@
     <form method="post" action="/logout"><button class="plain" type="submit">{{.T.logout}}</button></form>
   </div>
   {{$t := .T}}{{$any := false}}
-  {{range .Circle.Rings}}{{if .People}}{{$any = true}}<section>
-    <h2>{{index $t .Name}}</h2>
-    <ul class="people">{{range .People}}
-      <li><a href="{{.URL}}" rel="noopener nofollow">{{.DisplayName}}</a> <span class="acct">@{{.Acct}}</span></li>{{end}}
-    </ul>
+  {{range .Circle.Rings}}{{if .People}}{{$any = true}}<section class="ring">
+    <h2>{{index $t .Name}} <span class="count">{{len .People}}</span></h2>
+    <ol>{{range .People}}
+      <li><a class="name" href="{{.URL}}" rel="noopener nofollow">{{.DisplayName}}</a><span class="handle">@{{.Acct}}</span></li>{{end}}
+    </ol>
   </section>{{end}}{{end}}
   {{if not $any}}<p>{{.T.empty}}</p>{{end}}
 </main>

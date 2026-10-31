@@ -88,6 +88,18 @@ func TestSpots(t *testing.T) {
 	}
 }
 
+func TestLocalAccountsGetTheDomain(t *testing.T) {
+	inst := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `[{"id":"1","acct":"guto"},{"id":"2","acct":"a@far.example"}]`)
+	}))
+	defer inst.Close()
+	api := &instanceAPI{base: inst.URL, domain: "bolha.us", client: inst.Client()}
+	got, err := api.people(context.Background(), []int64{1, 2})
+	if err != nil || len(got) != 2 || got[0].Acct != "guto@bolha.us" || got[1].Acct != "a@far.example" {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+}
+
 func TestFitText(t *testing.T) {
 	long := "@" + strings.Repeat("alguem", 20) + "@" + strings.Repeat("instancia", 20) + ".example"
 	got := fitText(rowDimFace, long, 120)

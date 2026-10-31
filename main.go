@@ -117,7 +117,7 @@ func main() {
 		log.Fatal(err)
 	}
 	client := &http.Client{Timeout: 10 * time.Second}
-	api := &instanceAPI{base: cfg.instance, client: client}
+	api := &instanceAPI{base: cfg.instance, domain: cfg.domain, client: client}
 	s := newServer(cfg, tmpl, client, newBuilder(db, api, cfg))
 	log.Printf("listening on %s for %s", cfg.listen, cfg.domain)
 	srv := &http.Server{
