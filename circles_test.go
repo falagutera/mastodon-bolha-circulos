@@ -376,3 +376,11 @@ func TestLogoutRefusesOtherSites(t *testing.T) {
 		t.Fatalf("cross-site logout: %d", resp.StatusCode)
 	}
 }
+
+func TestInstanceIsRequired(t *testing.T) {
+	t.Setenv("CIRCLES_INSTANCE", "")
+	t.Setenv("CIRCLES_BASE_URL", "https://app.example.social")
+	if _, err := loadConfig(); err == nil || !strings.Contains(err.Error(), "CIRCLES_INSTANCE") {
+		t.Fatalf("started without an instance: %v", err)
+	}
+}

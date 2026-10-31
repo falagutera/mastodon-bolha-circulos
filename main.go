@@ -25,9 +25,9 @@ var assetFS embed.FS
 
 type config struct {
 	listen       string
-	baseURL      string // https://circles.bolha.us
-	instance     string // https://bolha.us
-	domain       string // bolha.us
+	baseURL      string
+	instance     string
+	domain       string
 	clientID     string
 	clientSecret string
 	secret       []byte
@@ -55,7 +55,7 @@ func loadConfig() (config, error) {
 		clientID:     os.Getenv("CIRCLES_CLIENT_ID"),
 		clientSecret: os.Getenv("CIRCLES_CLIENT_SECRET"),
 		secret:       []byte(os.Getenv("CIRCLES_SECRET")),
-		instance:     strings.TrimRight(env("CIRCLES_INSTANCE", "https://bolha.us"), "/"),
+		instance:     strings.TrimRight(os.Getenv("CIRCLES_INSTANCE"), "/"),
 		lang:         env("CIRCLES_LANG", "en"),
 		cacheTTL:     time.Hour,
 		dbHost:       os.Getenv("CIRCLES_DB_HOST"),
