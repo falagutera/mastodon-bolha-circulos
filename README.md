@@ -37,24 +37,64 @@ You need Docker, and network access from it to your Mastodon PostgreSQL.
      https://example.social/api/v1/apps
    ```
 
-3. Configure and start it:
+3. Create a folder with these two files. The image is ready to pull, so you don't need this repository.
 
-   ```sh
-   cp .env.example .env   # URLs, OAuth application, secret, database host, user and password
-   docker compose up -d
+   `.env`:
+
+   ```ini
+   CIRCLES_INSTANCE=https://example.social
+   CIRCLES_BASE_URL=https://circles.example.social
+   CIRCLES_CLIENT_ID=the client_id from step 2
+   CIRCLES_CLIENT_SECRET=the client_secret from step 2
+   CIRCLES_SECRET=the output of: openssl rand -hex 32
+   CIRCLES_DB_HOST=10.0.0.10
+   CIRCLES_DB_USER=circles
+   CIRCLES_DB_PASSWORD=change-me
    ```
 
-4. Point your reverse proxy at `127.0.0.1:8080`. It must serve HTTPS: the session cookie needs it.
+   `docker-compose.yml`:
 
-### Prebuilt image
+   ```yaml
+   services:
+     circles:
+       image: registry.gutocarvalho.net/open/circles:latest
+       container_name: circles
+       restart: unless-stopped
+       env_file: .env
+       read_only: true
+       cap_drop: [ALL]
+       security_opt: ["no-new-privileges:true"]
+       mem_limit: 256m
+       ports:
+         - "127.0.0.1:8080:8080"
+   ```
 
-Every release is published, so you don't need to build it. In `docker-compose.yml`, replace the `build` and `image` lines with:
+4. Start it: `docker compose up -d`.
 
-```yaml
-image: registry.gutocarvalho.net/open/circles:latest
-```
+5. Point your reverse proxy at `127.0.0.1:8080`. It must serve HTTPS: the session cookie needs it.
 
-For a fixed version, use a tag such as `0.6.0-808`.
+To update: `docker compose pull && docker compose up -d`. For a fixed version, swap `latest` for a tag such as `0.6.0-808`.
+
+To build it yourself instead, clone this repository, copy `.env.example` to `.env` and run `docker compose up -d --build`.
+
+### Settings
+
+| Variable | Required | Default | What it is |
+|---|---|---|---|
+| `CIRCLES_INSTANCE` | yes |  | Your instance. Only its accounts can draw a circle. |
+| `CIRCLES_BASE_URL` | yes |  | Where this app is served, always https. |
+| `CIRCLES_CLIENT_ID` | yes |  | OAuth application. |
+| `CIRCLES_CLIENT_SECRET` | yes |  | OAuth application. |
+| `CIRCLES_SECRET` | yes |  | Signs the session cookie. |
+| `CIRCLES_DB_HOST` | yes |  | Mastodon PostgreSQL, reachable from the container. |
+| `CIRCLES_DB_USER` | yes |  | Read-only user from step 1. |
+| `CIRCLES_DB_PASSWORD` | yes |  | Its password. |
+| `CIRCLES_DB_PORT` | no | `5432` | Use your pgbouncer port if you have one. |
+| `CIRCLES_DB_NAME` | no | `mastodon_production` | Database name. |
+| `CIRCLES_DB_SSLMODE` | no | `prefer` | PostgreSQL `sslmode`. |
+| `CIRCLES_LANG` | no | `en` | `en` or `pt`, when the browser asks for neither. |
+| `CIRCLES_CACHE_TTL` | no | `1h` | How long a circle is kept in memory. |
+| `CIRCLES_LISTEN` | no | `:8080` | Address inside the container. |
 
 ## How it works
 
