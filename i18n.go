@@ -10,8 +10,7 @@ const langCookie = "__Host-circles-lang"
 var translations = map[string]map[string]string{
 	"en": {
 		"lang":              "en",
-		"switch_code":       "pt",
-		"switch_label":      "Português",
+		"language":          "Language",
 		"title":             "Circles",
 		"card_eyebrow":      "Fediverse circle",
 		"card_closest":      "Closest to you",
@@ -36,8 +35,7 @@ var translations = map[string]map[string]string{
 	},
 	"pt": {
 		"lang":              "pt-BR",
-		"switch_code":       "en",
-		"switch_label":      "English",
+		"language":          "Idioma",
 		"title":             "Círculos",
 		"card_eyebrow":      "Círculo no fediverso",
 		"card_closest":      "Mais perto de você",

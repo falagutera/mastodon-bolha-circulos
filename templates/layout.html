@@ -11,10 +11,15 @@
 <body>
 <div class="wrap">
 <header>
-  <span class="eyebrow">{{.Domain}}</span>
+  <div class="topbar">
+    <span class="eyebrow">{{.Domain}}</span>
+    <span class="langsel" role="group" aria-label="{{.T.language}}">
+      <a href="/?lang=pt" hreflang="pt-BR"{{if eq .T.lang "pt-BR"}} class="on" aria-current="true"{{end}}>PT</a>
+      <a href="/?lang=en" hreflang="en"{{if eq .T.lang "en"}} class="on" aria-current="true"{{end}}>EN</a>
+    </span>
+  </div>
 {{end}}
 {{define "foot"}}<footer class="foot">
-  <a href="/?lang={{.T.switch_code}}" hreflang="{{.T.switch_code}}">{{.T.switch_label}}</a>
   <a href="https://gitlab.gutocarvalho.net/open/circles">{{.T.source}}</a>
   <a href="https://github.com/AMNatty/Mastodon-Circles">{{.T.credit}}</a>
 </footer>

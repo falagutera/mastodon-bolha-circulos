@@ -47,7 +47,7 @@ You need Docker, and network access from it to your Mastodon PostgreSQL.
 - Avatars and display names come from the instance's public API, in two calls. An avatar that can't be used (AVIF, too big, offline) becomes a disc with the person's initial.
 - Sign-in is OAuth with PKCE and the minimal `profile` scope. The token is used once to read the username, then revoked. The session is a signed cookie that lasts 4 hours.
 - Finished circles stay in memory for an hour (`CIRCLES_CACHE_TTL`). Nothing is written to disk and no history is kept.
-- English and Brazilian Portuguese, including the image. It follows the browser, with a link in the footer to switch (kept in a cookie).
+- English and Brazilian Portuguese, including the image. It follows the browser, with a selector at the top to switch (kept in a cookie).
 - No JavaScript, one small container, and the database user can't read e-mails or passwords.
 
 ## Development

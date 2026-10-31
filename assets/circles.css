@@ -11,10 +11,15 @@ button.plain { background: none; color: var(--accent); font-weight: 400; padding
 .note { color: var(--muted); font-size: 0.92rem; }
 .error { color: var(--crit); font-weight: 500; }
 .wrap { max-width: 1240px; }
-header, .draw, .lede { max-width: 860px; }
+.lede { max-width: 860px; }
 .circle { display: block; width: 100%; height: auto; }
 .actions { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; }
 .people { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 22px; }
 .people li { min-width: 0; overflow-wrap: anywhere; }
 .acct { display: block; font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
 .foot { display: flex; flex-wrap: wrap; gap: 18px; border-top: 1px solid var(--line); padding-top: 18px; font-size: 0.9rem; }
+/* Same selector as bolha.io. */
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.langsel { display: flex; gap: 2px; border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
+.langsel a { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); text-decoration: none; padding: 5px 9px; border-radius: 999px; }
+.langsel a.on { background: var(--fill); color: #1a1204; }
