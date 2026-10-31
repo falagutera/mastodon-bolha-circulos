@@ -14,6 +14,7 @@
   <span class="eyebrow">{{.Domain}}</span>
 {{end}}
 {{define "foot"}}<footer class="foot">
+  <a href="/?lang={{.T.switch_code}}" hreflang="{{.T.switch_code}}">{{.T.switch_label}}</a>
   <a href="https://gitlab.gutocarvalho.net/open/circles">{{.T.source}}</a>
   <a href="https://github.com/AMNatty/Mastodon-Circles">{{.T.credit}}</a>
 </footer>

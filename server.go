@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 type server struct {
@@ -66,8 +67,8 @@ type pageData struct {
 	Circle  *circle
 }
 
-func (s *server) page() pageData {
-	return pageData{T: strs(s.cfg.lang), Domain: s.cfg.domain}
+func (s *server) page(r *http.Request) pageData {
+	return pageData{T: strs(language(r, s.cfg.lang)), Domain: s.cfg.domain}
 }
 
 func (s *server) render(w http.ResponseWriter, status int, name string, data pageData) {
@@ -82,24 +83,31 @@ func (s *server) render(w http.ResponseWriter, status int, name string, data pag
 	w.Write(buf.Bytes())
 }
 
-func (s *server) renderError(w http.ResponseWriter, status int, key string) {
-	d := s.page()
+func (s *server) renderError(w http.ResponseWriter, r *http.Request, status int, key string) {
+	d := s.page(r)
 	d.Message = d.T["error_"+key]
 	s.render(w, status, "index.html", d)
 }
 
 func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	sess, ok := s.currentSession(r)
-	if !ok {
-		s.render(w, http.StatusOK, "index.html", s.page())
+	if lang := r.URL.Query().Get("lang"); lang != "" {
+		if _, ok := translations[lang]; ok {
+			s.setCookie(w, langCookie, lang, 365*24*time.Hour)
+		}
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	c, err := s.circles.get(r.Context(), sess.Account)
+	sess, ok := s.currentSession(r)
+	if !ok {
+		s.render(w, http.StatusOK, "index.html", s.page(r))
+		return
+	}
+	c, err := s.circles.get(r.Context(), sess.Account, language(r, s.cfg.lang))
 	if err != nil {
 		s.circleError(w, r, err)
 		return
 	}
-	d := s.page()
+	d := s.page(r)
 	d.Circle = c
 	s.render(w, http.StatusOK, "circle.html", d)
 }
@@ -110,7 +118,7 @@ func (s *server) handleImage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
-	c, err := s.circles.get(r.Context(), sess.Account)
+	c, err := s.circles.get(r.Context(), sess.Account, language(r, s.cfg.lang))
 	if err != nil {
 		s.circleError(w, r, err)
 		return
@@ -124,9 +132,9 @@ func (s *server) circleError(w http.ResponseWriter, r *http.Request, err error) 
 	switch {
 	case errors.Is(err, context.Canceled):
 	case errors.Is(err, errNoAccount):
-		s.renderError(w, http.StatusNotFound, "account")
+		s.renderError(w, r, http.StatusNotFound, "account")
 	default:
 		log.Printf("circle: %v", err)
-		s.renderError(w, http.StatusBadGateway, "unavailable")
+		s.renderError(w, r, http.StatusBadGateway, "unavailable")
 	}
 }

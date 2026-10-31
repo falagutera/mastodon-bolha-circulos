@@ -1,8 +1,17 @@
 package main
 
+import (
+	"net/http"
+	"strings"
+)
+
+const langCookie = "__Host-circles-lang"
+
 var translations = map[string]map[string]string{
 	"en": {
 		"lang":              "en",
+		"switch_code":       "pt",
+		"switch_label":      "Português",
 		"title":             "Circles",
 		"card_eyebrow":      "Fediverse circle",
 		"card_closest":      "Closest to you",
@@ -27,6 +36,8 @@ var translations = map[string]map[string]string{
 	},
 	"pt": {
 		"lang":              "pt-BR",
+		"switch_code":       "en",
+		"switch_label":      "English",
 		"title":             "Círculos",
 		"card_eyebrow":      "Círculo no fediverso",
 		"card_closest":      "Mais perto de você",
@@ -49,6 +60,24 @@ var translations = map[string]map[string]string{
 		"error_account":     "Esta conta não pode desenhar um círculo.",
 		"error_unavailable": "Não deu certo. Tente de novo em instantes.",
 	},
+}
+
+// language picks the page language: the visitor's choice, then their browser,
+// then the instance default.
+func language(r *http.Request, fallback string) string {
+	if c, err := r.Cookie(langCookie); err == nil {
+		if _, ok := translations[c.Value]; ok {
+			return c.Value
+		}
+	}
+	for part := range strings.SplitSeq(r.Header.Get("Accept-Language"), ",") {
+		tag, _, _ := strings.Cut(strings.TrimSpace(part), ";")
+		base, _, _ := strings.Cut(strings.ToLower(tag), "-")
+		if _, ok := translations[base]; ok {
+			return base
+		}
+	}
+	return fallback
 }
 
 func newCardText(lang string) cardText {

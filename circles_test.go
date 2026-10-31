@@ -101,7 +101,7 @@ func (d dirWithoutSelf) people(ctx context.Context, ids []int64) ([]person, erro
 func TestMissingSelfIsNotReplaced(t *testing.T) {
 	b := newBuilder(&fakeDB{}, dirWithoutSelf{}, config{domain: "bolha.us", cacheTTL: time.Hour})
 	b.fetch = func(context.Context, string) *avatar { return nil }
-	if _, err := b.get(context.Background(), "guto"); !errors.Is(err, errNoAccount) {
+	if _, err := b.get(context.Background(), "guto", "en"); !errors.Is(err, errNoAccount) {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -281,6 +281,51 @@ func TestLoginFlow(t *testing.T) {
 	}
 	if resp, _ := get(t, ts.URL+"/circle.png", sess); resp.StatusCode != 200 {
 		t.Fatalf("after login: %d", resp.StatusCode)
+	}
+}
+
+func TestLanguage(t *testing.T) {
+	s, ts, db := testServer(t, "")
+	ask := func(header string, cookies ...*http.Cookie) string {
+		req, _ := http.NewRequest(http.MethodGet, ts.URL+"/", nil)
+		req.Header.Set("Accept-Language", header)
+		for _, c := range cookies {
+			req.AddCookie(c)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		var b bytes.Buffer
+		b.ReadFrom(resp.Body)
+		return b.String()
+	}
+	en, pt := `<html lang="en">`, `<html lang="pt-BR">`
+	for header, want := range map[string]string{"en-US,en;q=0.9": en, "pt-BR,pt;q=0.9,en;q=0.8": pt, "fr-FR,en;q=0.5": en, "de": pt, "": pt} {
+		if !strings.Contains(ask(header), want) {
+			t.Errorf("Accept-Language %q: wanted %s", header, want)
+		}
+	}
+	if !strings.Contains(ask("pt-BR", &http.Cookie{Name: langCookie, Value: "en"}), en) {
+		t.Error("the chosen language must win over the browser")
+	}
+	if !strings.Contains(ask("en", &http.Cookie{Name: langCookie, Value: "xx"}), en) {
+		t.Error("an unknown cookie must be ignored")
+	}
+	resp, _ := get(t, ts.URL+"/?lang=en")
+	if resp.StatusCode != 303 || len(resp.Cookies()) != 1 || resp.Cookies()[0].Name != langCookie {
+		t.Fatalf("switch: %d %v", resp.StatusCode, resp.Cookies())
+	}
+	if resp, _ := get(t, ts.URL+"/?lang=xx"); len(resp.Cookies()) != 0 {
+		t.Fatal("unknown language was stored")
+	}
+	// Each language has its own image, the same one for page and download.
+	c := sessionFor(t, s, "guto", time.Now().Add(time.Hour))
+	_, a := get(t, ts.URL+"/circle.png", c, &http.Cookie{Name: langCookie, Value: "en"})
+	_, b := get(t, ts.URL+"/circle.png", c, &http.Cookie{Name: langCookie, Value: "pt"})
+	if a == b || db.calls.Load() != 2 {
+		t.Fatalf("languages share an image, %d builds", db.calls.Load())
 	}
 }
 

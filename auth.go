@@ -126,29 +126,29 @@ func (s *server) handleLogin(w http.ResponseWriter, r *http.Request) {
 func (s *server) handleCallback(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie(stateCookie)
 	if err != nil {
-		s.renderError(w, http.StatusBadRequest, "expired")
+		s.renderError(w, r, http.StatusBadRequest, "expired")
 		return
 	}
 	s.clearCookie(w, stateCookie)
 	var st loginState
 	if err := s.open("state", c.Value, &st); err != nil || time.Now().After(st.Expires) {
-		s.renderError(w, http.StatusBadRequest, "expired")
+		s.renderError(w, r, http.StatusBadRequest, "expired")
 		return
 	}
 	q := r.URL.Query()
 	if !hmac.Equal([]byte(q.Get("state")), []byte(st.State)) {
-		s.renderError(w, http.StatusBadRequest, "expired")
+		s.renderError(w, r, http.StatusBadRequest, "expired")
 		return
 	}
 	if q.Get("code") == "" {
 		// The person declined on the instance's consent screen.
-		s.renderError(w, http.StatusForbidden, "denied")
+		s.renderError(w, r, http.StatusForbidden, "denied")
 		return
 	}
 	token, err := s.exchangeCode(q.Get("code"), st.Verifier)
 	if err != nil {
 		log.Printf("token exchange: %v", err)
-		s.renderError(w, http.StatusBadGateway, "instance")
+		s.renderError(w, r, http.StatusBadGateway, "instance")
 		return
 	}
 	// The token is only needed to read the username, so it never outlives this request.
@@ -156,7 +156,7 @@ func (s *server) handleCallback(w http.ResponseWriter, r *http.Request) {
 	acct, err := s.fetchAccount(token)
 	if err != nil {
 		log.Printf("verify_credentials: %v", err)
-		s.renderError(w, http.StatusBadGateway, "instance")
+		s.renderError(w, r, http.StatusBadGateway, "instance")
 		return
 	}
 	value, err := s.seal("session", session{Account: acct, Expires: time.Now().Add(sessionTTL)})

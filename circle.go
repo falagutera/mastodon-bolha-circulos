@@ -56,7 +56,6 @@ type builder struct {
 	dir     directory
 	fetch   func(ctx context.Context, url string) *avatar
 	host    string
-	text    cardText
 	ttl     time.Duration
 	slots   chan struct{}
 	maxKeep int
@@ -72,7 +71,6 @@ func newBuilder(db database, dir directory, c config) *builder {
 		dir:     dir,
 		fetch:   func(ctx context.Context, url string) *avatar { return fetchAvatar(ctx, client, url) },
 		host:    strings.TrimPrefix(strings.TrimPrefix(c.baseURL, "https://"), "http://"),
-		text:    newCardText(c.lang),
 		ttl:     c.cacheTTL,
 		slots:   make(chan struct{}, 2),
 		maxKeep: 64,
@@ -80,8 +78,8 @@ func newBuilder(db database, dir directory, c config) *builder {
 	}
 }
 
-func (b *builder) get(ctx context.Context, username string) (*circle, error) {
-	key := strings.ToLower(username)
+func (b *builder) get(ctx context.Context, username, lang string) (*circle, error) {
+	key := strings.ToLower(username) + "|" + lang // the image carries text
 	b.mu.Lock()
 	e, ok := b.cache[key]
 	if ok && time.Since(e.created) > b.ttl {
@@ -96,7 +94,7 @@ func (b *builder) get(ctx context.Context, username string) (*circle, error) {
 		b.evict()
 		b.cache[key] = e
 		b.mu.Unlock()
-		go b.build(key, e)
+		go b.build(key, username, lang, e)
 	} else {
 		b.mu.Unlock()
 	}
@@ -128,13 +126,13 @@ func (b *builder) evict() {
 	}
 }
 
-func (b *builder) build(key string, e *entry) {
+func (b *builder) build(key, username, lang string, e *entry) {
 	defer close(e.done)
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	b.slots <- struct{}{}
 	defer func() { <-b.slots }()
-	e.result, e.err = b.compose(ctx, key)
+	e.result, e.err = b.compose(ctx, username, lang)
 	if e.err != nil {
 		b.mu.Lock()
 		delete(b.cache, key) // only successful circles stay
@@ -142,7 +140,7 @@ func (b *builder) build(key string, e *entry) {
 	}
 }
 
-func (b *builder) compose(ctx context.Context, username string) (*circle, error) {
+func (b *builder) compose(ctx context.Context, username, lang string) (*circle, error) {
 	id, err := b.db.accountID(ctx, username)
 	if err != nil {
 		return nil, err
@@ -160,7 +158,7 @@ func (b *builder) compose(ctx context.Context, username string) (*circle, error)
 	}
 	self, rest := people[0], people[1:]
 	rings := splitRings(rest)
-	img := drawCircle(self, rings, b.loadAvatars(ctx, append([]person{self}, rest...)), b.host, b.text)
+	img := drawCircle(self, rings, b.loadAvatars(ctx, append([]person{self}, rest...)), b.host, newCardText(lang))
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
 		return nil, err
