@@ -1,0 +1,16 @@
+{{template "head" .}}
+  <h1>{{.T.title}}</h1>
+  <p class="lede">{{printf .T.lede .Domain}}</p>
+</header>
+<main>
+  <form class="draw" method="get" action="/">
+    <label for="handle">{{.T.label}}</label>
+    <div class="row">
+      <input id="handle" name="handle" value="{{.Handle}}" placeholder="@usuario" autocomplete="off" autocapitalize="none" spellcheck="false" required>
+      <button type="submit">{{.T.button}}</button>
+    </div>
+    {{if .Message}}<p class="error" role="alert">{{.Message}}</p>{{end}}
+    <p class="note">{{.T.privacy}}</p>
+  </form>
+</main>
+{{template "foot" .}}

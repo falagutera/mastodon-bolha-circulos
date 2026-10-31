@@ -1,0 +1,14 @@
+# Put it behind your usual reverse proxy. Settings go in .env (see .env.example).
+services:
+  circles:
+    build: .
+    image: circles:local
+    container_name: circles
+    restart: unless-stopped
+    env_file: .env
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    ports:
+      - "127.0.0.1:8080:8080"

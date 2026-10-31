@@ -1,0 +1,20 @@
+{{template "head" .}}
+  <h1>{{printf .T.result .Circle.Self.DisplayName}}</h1>
+  <p class="lede"><a href="{{.Circle.Self.URL}}" rel="noopener">@{{.Circle.Self.Acct}}</a></p>
+</header>
+<main class="result">
+  <img class="circle" src="{{.Image}}" width="1000" height="1000" alt="{{printf .T.result .Circle.Self.DisplayName}}">
+  <div class="actions">
+    <a class="button" href="{{.Image}}" download="circle-{{.Circle.Self.Username}}.png">{{.T.download}}</a>
+    <a href="/">{{.T.another}}</a>
+  </div>
+  {{$t := .T}}{{$any := false}}
+  {{range .Circle.Rings}}{{if .People}}{{$any = true}}<section>
+    <h2>{{index $t .Name}}</h2>
+    <ul class="people">{{range .People}}
+      <li><a href="{{.URL}}" rel="noopener nofollow">{{.DisplayName}}</a> <span class="acct">@{{.Acct}}</span></li>{{end}}
+    </ul>
+  </section>{{end}}{{end}}
+  {{if not $any}}<p>{{.T.empty}}</p>{{end}}
+</main>
+{{template "foot" .}}
