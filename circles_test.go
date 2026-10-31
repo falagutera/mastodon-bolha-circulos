@@ -69,6 +69,25 @@ func TestDrawable(t *testing.T) {
 	}
 }
 
+func TestSpots(t *testing.T) {
+	people := make([]person, 49)
+	for i := range people {
+		people[i] = person{Acct: strings.Repeat("a", 30) + "@instance.example", URL: "https://x"}
+	}
+	all := spots(person{Acct: "guto"}, splitRings(people))
+	if len(all) != 50 || all[49].R != selfRadius {
+		t.Fatalf("got %d spots", len(all))
+	}
+	for _, s := range all {
+		if s.TipX < 0 || s.TipY < 0 || s.TipX+s.TipW > canvasWidth || s.TipY+s.TipH > canvasHeight {
+			t.Errorf("label off the image: %+v", s)
+		}
+		if s.X-s.R < 0 || s.Y-s.R < 0 || s.Y+s.R > canvasHeight {
+			t.Errorf("avatar off the image: %+v", s)
+		}
+	}
+}
+
 func TestFitText(t *testing.T) {
 	long := "@" + strings.Repeat("alguem", 20) + "@" + strings.Repeat("instancia", 20) + ".example"
 	got := fitText(rowDimFace, long, 120)
@@ -215,6 +234,9 @@ func TestOwnCircle(t *testing.T) {
 	}
 	if strings.Contains(body, "<b>") {
 		t.Fatal("display name not escaped")
+	}
+	if !strings.Contains(body, `aria-label="@u2@a-very-long-instance-name.far.example"`) || !strings.Contains(body, `href="https://x/2"`) {
+		t.Fatal("missing hover area")
 	}
 	if !strings.Contains(resp.Header.Get("Content-Security-Policy"), "default-src 'none'") || resp.Header.Get("Cache-Control") != "no-store" {
 		t.Fatal("missing security headers")

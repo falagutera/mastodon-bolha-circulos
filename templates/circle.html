@@ -3,7 +3,13 @@
   <p class="lede"><a href="{{.Circle.Self.URL}}" rel="noopener">@{{.Circle.Self.Acct}}</a></p>
 </header>
 <main class="result">
-  <img class="circle" src="/circle.png" width="1600" height="1000" alt="{{printf .T.result .Circle.Self.DisplayName}}">
+  <svg class="circle" viewBox="0 0 1600 1000" role="img" aria-label="{{printf .T.result .Circle.Self.DisplayName}}">
+    <image href="/circle.png" width="1600" height="1000"/>
+    {{range .Circle.Spots}}<a class="spot" href="{{.URL}}" rel="noopener nofollow" aria-label="{{.Acct}}">
+      <circle cx="{{.X}}" cy="{{.Y}}" r="{{.R}}"/>
+      <g class="tip"><rect x="{{.TipX}}" y="{{.TipY}}" width="{{.TipW}}" height="{{.TipH}}" rx="10"/><text x="{{.TextX}}" y="{{.TextY}}">{{.Acct}}</text></g>
+    </a>
+    {{end}}</svg>
   <div class="actions">
     <a class="button" href="/circle.png" download="circle-{{.Circle.Self.Username}}.png">{{.T.download}}</a>
     <form method="post" action="/logout"><button class="plain" type="submit">{{.T.logout}}</button></form>

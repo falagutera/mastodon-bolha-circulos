@@ -123,6 +123,51 @@ func decodeAvatar(body []byte) *avatar {
 	return &avatar{img: small}
 }
 
+// ringPoint is the center of the i-th avatar of a ring.
+func ringPoint(layer, i int) (x, y int) {
+	const c = canvasHeight / 2
+	step := 360 / float64(ringSizes[layer])
+	angle := (float64(i)*step + ringOffset[layer]) * math.Pi / 180
+	return c + int(math.Round(math.Cos(angle)*ringDist[layer])), c + int(math.Round(math.Sin(angle)*ringDist[layer]))
+}
+
+// spot is an area over an avatar on the page: the link to the profile and the
+// label shown on hover, in image coordinates.
+type spot struct {
+	X, Y, R    int
+	Acct, URL  string
+	TipX, TipY int
+	TipW, TipH int
+	TextX      int
+	TextY      int
+}
+
+func newSpot(p person, x, y, r int) spot {
+	const pad, height, gap = 16, 44, 10
+	s := spot{X: x, Y: y, R: r, Acct: "@" + p.Acct, URL: p.URL, TipH: height}
+	s.TipW = textWidth(rowFace, s.Acct) + 2*pad
+	s.TipX = max(8, min(x-s.TipW/2, canvasWidth-s.TipW-8))
+	s.TipY = y + r + gap
+	if s.TipY+height > canvasHeight-8 {
+		s.TipY = y - r - gap - height // no room below
+	}
+	s.TextX = s.TipX + s.TipW/2
+	s.TextY = s.TipY + 30
+	return s
+}
+
+// spots lists the areas of a circle, the person in the center last.
+func spots(self person, rings [3][]person) []spot {
+	var out []spot
+	for layer, people := range rings {
+		for i, p := range people {
+			x, y := ringPoint(layer, i)
+			out = append(out, newSpot(p, x, y, ringRadius[layer]))
+		}
+	}
+	return append(out, newSpot(self, canvasHeight/2, canvasHeight/2, selfRadius))
+}
+
 // cardText holds the words on the image, in the instance's language.
 type cardText struct {
 	Eyebrow string
@@ -140,11 +185,8 @@ func drawCircle(self person, rings [3][]person, avatars map[string]*avatar, host
 		strokeCircle(img, c, c, d, border)
 	}
 	for layer, people := range rings {
-		step := 360 / float64(ringSizes[layer])
 		for i, p := range people {
-			angle := (float64(i)*step + ringOffset[layer]) * math.Pi / 180
-			x := c + int(math.Round(math.Cos(angle)*ringDist[layer]))
-			y := c + int(math.Round(math.Sin(angle)*ringDist[layer]))
+			x, y := ringPoint(layer, i)
 			fillDisc(img, x, y, ringRadius[layer]+4, paper) // cuts the ring line around the avatar
 			drawFace(img, p, avatars[p.ID], x, y, ringRadius[layer])
 		}

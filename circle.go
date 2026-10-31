@@ -20,6 +20,7 @@ type ring struct {
 type circle struct {
 	Self  person
 	Rings []ring
+	Spots []spot
 	PNG   []byte
 }
 
@@ -166,6 +167,7 @@ func (b *builder) compose(ctx context.Context, username, lang string) (*circle, 
 	return &circle{
 		Self:  self,
 		Rings: []ring{{"inner", rings[0]}, {"middle", rings[1]}, {"outer", rings[2]}},
+		Spots: spots(self, rings),
 		PNG:   buf.Bytes(),
 	}, nil
 }
