@@ -73,9 +73,15 @@ You need Docker, and network access from it to your Mastodon PostgreSQL.
 
 5. Point your reverse proxy at `127.0.0.1:8080`. It must serve HTTPS: the session cookie needs it.
 
-To update: `docker compose pull && docker compose up -d`. For a fixed version, swap `latest` for a tag such as `0.6.0-808`.
+To update: `docker compose pull && docker compose up -d`. For a fixed version, swap `latest` for a tag such as `0.6.1-848`.
 
 To build it yourself instead, clone this repository, copy `.env.example` to `.env` and run `docker compose up -d --build`.
+
+### Versions
+
+Images are tagged `<version>-<build>`, such as `0.6.1-848`. The version is set in `.gitlab-ci.yml` and the build is the GitLab pipeline number. These tags never move, and `latest` follows the newest build.
+
+The page footer shows the same value, so you can compare what is live with the [container registry](https://gitlab.gutocarvalho.net/open/circles/container_registry). A local build shows `dev`.
 
 ### Settings
 
