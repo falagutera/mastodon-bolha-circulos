@@ -37,3 +37,4 @@ button.plain { background: none; color: var(--accent); font-weight: 400; padding
 .tip rect { fill: #0C0D10; stroke: var(--line); stroke-width: 1.5; }
 .tip text { fill: var(--ink); font-family: var(--body); font-size: 25px; font-weight: 600; text-anchor: middle; }
 @media (max-width: 560px) { .ring li { grid-template-columns: minmax(0, 1fr); } }
+.version { color: var(--muted); }

@@ -7,7 +7,8 @@ COPY *.go ./
 COPY templates ./templates
 COPY assets ./assets
 COPY fonts ./fonts
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /circles .
+ARG VERSION=dev
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /circles .
 
 # --- runtime -----------------------------------------------------------------
 # distroless static: no shell, ca-certs + a nonroot user, tiny.
