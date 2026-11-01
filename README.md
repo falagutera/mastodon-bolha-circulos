@@ -57,7 +57,7 @@ You need Docker, and network access from it to your Mastodon PostgreSQL.
    ```yaml
    services:
      circles:
-       image: registry.gutocarvalho.net/open/circles:latest
+       image: registry.gutocarvalho.net/images/circles:latest
        container_name: circles
        restart: unless-stopped
        env_file: .env
