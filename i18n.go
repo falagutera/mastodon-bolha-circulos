@@ -9,7 +9,7 @@ const langCookie = "__Host-circles-lang"
 
 var translations = map[string]map[string]string{
 	"en": {
-		"lang":              "en",
+		"lang": "en", "nav_notes": "Release notes", "notes_title": "Release notes", "notes_lede": "What changed in each version.",
 		"language":          "Language",
 		"title":             "Circles",
 		"card_eyebrow":      "Fediverse circle",
@@ -36,7 +36,7 @@ var translations = map[string]map[string]string{
 		"error_unavailable": "That didn't work. Please try again in a moment.",
 	},
 	"pt": {
-		"lang":              "pt-BR",
+		"lang": "pt-BR", "nav_notes": "Novidades", "notes_title": "Novidades", "notes_lede": "O que mudou em cada versão.",
 		"language":          "Idioma",
 		"title":             "Círculos",
 		"card_eyebrow":      "Círculo no fediverso",

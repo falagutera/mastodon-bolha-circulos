@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"gitlab.gutocarvalho.net/open/bolha/circles/internal/relnotes"
 )
 
 type server struct {
@@ -44,6 +46,8 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("POST /logout", s.handleLogout)
 	mux.HandleFunc("GET /circle.png", s.handleImage)
 	mux.HandleFunc("GET /{$}", s.handleIndex)
+	mux.HandleFunc("GET /release-notes", s.handleNotes)
+	mux.Handle("GET /release-notes.json", relnotes.JSONHandler("circles", version, releases))
 	return securityHeaders(mux)
 }
 
@@ -62,15 +66,24 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 type pageData struct {
-	Version string
-	T       map[string]string
-	Domain  string
-	Message string
-	Circle  *circle
+	Notes    bool          // on the release notes page
+	Releases template.HTML // release notes
+	Version  string
+	T        map[string]string
+	Domain   string
+	Message  string
+	Circle   *circle
 }
 
 func (s *server) page(r *http.Request) pageData {
 	return pageData{Version: version, T: strs(language(r, s.cfg.lang)), Domain: s.cfg.domain}
+}
+
+// handleNotes serves the public release notes page.
+func (s *server) handleNotes(w http.ResponseWriter, r *http.Request) {
+	d := s.page(r)
+	d.Notes, d.Releases = true, relnotes.HTML(releases)
+	s.render(w, http.StatusOK, "notes.html", d)
 }
 
 func (s *server) render(w http.ResponseWriter, status int, name string, data pageData) {
