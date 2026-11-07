@@ -3,6 +3,13 @@
 All notable changes to circles. Versions follow [SemVer](https://semver.org/); images are
 published as `registry.gutocarvalho.net/images/circles:<version>-<build>`.
 
+## 0.6.4 — 2026-11-07
+
+Hardening from the updated linters.
+
+- A circle being built keeps the request's values but not its cancellation, and the cache lock is released in one place.
+- The image declares its non-root user (65532) explicitly.
+
 ## 0.6.3 — 2026-11-06
 
 - Release notes page, linked from the top of every page, and the same data at `/release-notes.json`.

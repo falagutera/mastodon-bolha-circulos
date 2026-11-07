@@ -98,14 +98,17 @@ func (b *builder) get(ctx context.Context, username, lang string) (*circle, erro
 		default:
 		}
 	}
-	if !ok {
+	start := !ok
+	if start {
 		e = &entry{done: make(chan struct{}), created: time.Now()}
 		b.evict()
 		b.cache[key] = e
-		b.mu.Unlock()
-		go b.build(key, username, lang, e)
-	} else {
-		b.mu.Unlock()
+	}
+	b.mu.Unlock()
+	if start {
+		// The build is shared by every request for this key, so one caller leaving
+		// must not cancel it: it keeps ctx's values, not its cancellation.
+		go b.build(context.WithoutCancel(ctx), key, username, lang, e)
 	}
 	select {
 	case <-e.done:
@@ -135,7 +138,7 @@ func (b *builder) evict() {
 	}
 }
 
-func (b *builder) build(key, username, lang string, e *entry) {
+func (b *builder) build(ctx context.Context, key, username, lang string, e *entry) {
 	defer close(e.done)
 	defer func() {
 		if r := recover(); r != nil {
@@ -148,7 +151,7 @@ func (b *builder) build(key, username, lang string, e *entry) {
 			b.mu.Unlock()
 		}
 	}()
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 	b.slots <- struct{}{}
 	defer func() { <-b.slots }()
