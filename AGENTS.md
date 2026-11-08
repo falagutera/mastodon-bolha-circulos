@@ -35,7 +35,7 @@ Test variables: `CIRCLES_TEST_DB_HOST`, `_PORT` (5432), `_NAME` (circles_test), 
 `_PASSWORD` (pg). The test also creates a role `circles_app` with only the README's grants.
 
 To look at a rendered circle (fake people, initials instead of avatars):
-`mkdir -p /tmp/circles-dump && CIRCLES_DUMP=/tmp/circles-dump go test -run TestOwnCircle ./...`
+`D=$(mktemp -d) && CIRCLES_DUMP=$D go test -run TestOwnCircle ./... && echo $D`
 writes `circle.html`, `circle.png` and `assets/` there. Running the app itself needs a Mastodon
 database and an OAuth app (README, Install).
 
@@ -53,7 +53,7 @@ database and an OAuth app (README, Install).
 | `render.go` | the PNG card: ring sizes and positions, fonts, avatar decode limits, hover `spots` |
 | `i18n.go` | every text, in `en` and `pt`, including the words drawn on the image |
 | `templates/` | `layout.html` (head/foot), `index.html`, `circle.html` (SVG over the PNG), `notes.html` |
-| `assets/` | CSS and web fonts; `fonts/` are the TTFs drawn into the PNG |
+| `assets/` | `circles.css` (the app's own CSS) and web fonts; `artefatos.css` is the shared design stylesheet of our sites (don't edit it here); `fonts/` are the TTFs drawn into the PNG |
 | `internal/relnotes` | copy of the shared release-notes package (synced from its own repo, never edited here) |
 
 Tests: `circles_test.go` (fake database `fakeDB` and directory `fakeDir`, `testServer`, `get`,
@@ -77,7 +77,8 @@ Tests: `circles_test.go` (fake database `fakeDB` and directory `fakeDir`, `testS
    (each excluded case has a fixture row).
 3. **Read-only, least privilege.** The README's step 1 lists every column granted. A new column
    means: the grant in the README, the column in `testSchema`, the grant in `appGrants`, and a
-   changelog line telling installs to re-grant. Never grant `accounts.private_key`, e-mails,
+   changelog line telling installs to re-grant. If the column adds an exclusion, also name it in
+   the README's "How it works" and in rule 2's list above. Never grant `accounts.private_key`, e-mails,
    passwords, tokens or post text. `check()` runs both queries at startup so a missing grant stops
    the app instead of a circle. Keep `QueryExecModeSimpleProtocol` (pgbouncer transaction mode).
 4. **Tokens never outlive the request.** Sign-in asks only `profile`; the token reads the
@@ -105,7 +106,9 @@ Tests: `circles_test.go` (fake database `fakeDB` and directory `fakeDir`, `testS
 0. **Check it is not there already.** Read `buildRankingQuery` and the README's "How it works":
    weights (1.0 favourite, 1.1 reply, 1.3 boost), 70 posts (`maxPosts`), 49 people (`maxPeople`,
    which must equal the sum of `ringSizes` in `render.go`).
-1. Change the SQL in `buildRankingQuery`; any new source of interactions also gets `%[1]s`.
+1. Change the SQL in `buildRankingQuery`; any new source of interactions also gets `%[1]s`. A new
+   exclusion of accounts goes in the final `WHERE` on `accounts a`, and needs a fixture account
+   that does interact, so the test proves it is left out.
 2. **Only if it reads a column not granted yet:** rule 3. If only some forks have it, detect it
    with `has[...]` like `local_only`.
 3. Fixture rows in `store_test.go` for what must count and for what must not (a DM, a
@@ -116,7 +119,11 @@ Tests: `circles_test.go` (fake database `fakeDB` and directory `fakeDir`, `testS
 
 ## Releasing
 
-- `VERSION` holds `X.Y.Z`; CI adds the build number (`X.Y.Z-BUILD`). Bump it for user-visible changes.
+- `VERSION` holds `X.Y.Z`; CI adds the build number (`X.Y.Z-BUILD`). Which part to bump: a fix or a
+  small visual tweak is a patch; a new feature, option or detail is a minor; a change that needs a
+  new grant or setting at install is a minor whose changelog entry starts with that step in **bold**;
+  a breaking change is a major; docs, tests or CI only need no bump. Work not released yet can sit
+  under `## Unreleased` in `CHANGELOG.md` (`internal/relnotes` skips that section).
 - Every version needs its `CHANGELOG.md` entry (`TestChangelogHasVersion`); it is also the public
   `/release-notes` page and `/release-notes.json`, so write it for the people who use the site.
 - Code, comments, commits and the README in English. Keep commits small with a message that says why.
