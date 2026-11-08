@@ -10,11 +10,23 @@ stages: [security, test, build]
 test:
   stage: test
   image: golang:1.26-alpine
+  services:
+    - name: postgres:17-alpine
+      alias: postgres
   variables:
     CGO_ENABLED: "0"
+    POSTGRES_PASSWORD: pg
+    POSTGRES_DB: circles_test
+    CIRCLES_TEST_DB_HOST: postgres
+    CIRCLES_TEST_DB_NAME: circles_test
+    CIRCLES_TEST_DB_USER: postgres
+    CIRCLES_TEST_DB_PASSWORD: pg
   script:
     - go vet ./...
-    - go test ./...
+    - test -z "$(gofmt -l .)"
+    - go test -p 1 ./...
+    - go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+    - "$(go env GOPATH)/bin/govulncheck ./..."
 
 build:
   stage: build

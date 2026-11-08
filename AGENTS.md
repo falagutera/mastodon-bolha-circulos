@@ -15,10 +15,10 @@ instance's public API. Circles live in memory for `CIRCLES_CACHE_TTL`; nothing g
 ```sh
 gofmt -l .            # must print nothing
 go vet ./...
-go test ./...         # without CIRCLES_TEST_DB_HOST the database test skips itself
+go test ./...         # without CIRCLES_TEST_DB_HOST the database test skips itself (CI sets it)
 ```
 
-With a database. CI does **not** run this one (its test job has no PostgreSQL), so run it whenever
+With a database (CI runs this one against a PostgreSQL 17 service); run it locally too whenever
 you touch `store.go` or the grants. It **drops and recreates the `public` schema** of whatever it
 reaches and refuses a database whose name does not end in `_test`: use a throwaway container on a
 free port and chain with `&&` (`-h 127.0.0.1` waits for the real server, not the init one).
@@ -130,7 +130,8 @@ Tests: `circles_test.go` (fake database `fakeDB` and directory `fakeDir`, `testS
 
 ## Security checks
 
-CI runs `go vet`, the tests (without the database) and the shared security stage: gitleaks,
+CI runs `go vet`, `gofmt -l`, the tests (with PostgreSQL 17, so the ranking query and the app-role
+grants are checked), govulncheck and the shared security stage: gitleaks,
 govulncheck, trivy, gosec, semgrep, poutine, hadolint, shellcheck, yamllint. Before a release that
 touches the query, sign-in, sharing or avatar fetching, also review who can see what and where
 requests can go — the part scanners do not see.
