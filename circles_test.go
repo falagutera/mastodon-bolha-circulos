@@ -255,7 +255,9 @@ func TestOwnCircle(t *testing.T) {
 	if !strings.Contains(resp.Header.Get("Content-Security-Policy"), "default-src 'none'") || resp.Header.Get("Cache-Control") != "no-store" {
 		t.Fatal("missing security headers")
 	}
+	dump(t, "circle.html", body)
 	resp, body = get(t, ts.URL+"/circle.png", c)
+	dump(t, "circle.png", body)
 	if resp.StatusCode != 200 || resp.Header.Get("Content-Type") != "image/png" {
 		t.Fatalf("png: %d", resp.StatusCode)
 	}
