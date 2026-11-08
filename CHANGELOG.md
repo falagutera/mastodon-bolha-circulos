@@ -3,6 +3,14 @@
 All notable changes to circles. Versions follow [SemVer](https://semver.org/); images are
 published as `registry.gutocarvalho.net/images/circles:<version>-<build>`.
 
+## 0.7.0 — 2026-11-08
+
+The bolha.io look, shared with the other tools.
+
+- The page follows the system's light or dark theme, with the bolha.io header, a PT · EN switch and the standard footer.
+- The circle image sits in a card; the image itself is unchanged.
+- The page no longer loads web fonts (system fonts only); the image keeps its own.
+
 ## 0.6.4 — 2026-11-07
 
 Hardening from the updated linters.

@@ -395,7 +395,7 @@ func TestLanguage(t *testing.T) {
 		b.ReadFrom(resp.Body)
 		return b.String()
 	}
-	en, pt := `<html lang="en">`, `<html lang="pt-BR">`
+	en, pt := `<html lang="en" data-family="bolha">`, `<html lang="pt-BR" data-family="bolha">`
 	for header, want := range map[string]string{"en-US,en;q=0.9": en, "pt-BR,pt;q=0.9,en;q=0.8": pt, "fr-FR,en;q=0.5": en, "de": pt, "": pt} {
 		if !strings.Contains(ask(header), want) {
 			t.Errorf("Accept-Language %q: wanted %s", header, want)

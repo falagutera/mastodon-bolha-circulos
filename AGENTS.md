@@ -53,7 +53,7 @@ database and an OAuth app (README, Install).
 | `render.go` | the PNG card: ring sizes and positions, fonts, avatar decode limits, hover `spots` |
 | `i18n.go` | every text, in `en` and `pt`, including the words drawn on the image |
 | `templates/` | `layout.html` (head/foot), `index.html`, `circle.html` (SVG over the PNG), `notes.html` |
-| `assets/` | `circles.css` (the app's own CSS) and web fonts; `artefatos.css` is the shared design stylesheet of our sites (don't edit it here); `fonts/` are the TTFs drawn into the PNG |
+| `assets/` | `style.css` (copy from open/gcn/ui via its `sync.sh`, never edited here) and `circles.css` (the app's own rules, with the tokens); `fonts/` (repo root) are the TTFs drawn into the PNG only. The look is [VISUAL.md](VISUAL.md); check with `open/gcn/ui/check.sh --card-fonts .` |
 | `internal/relnotes` | copy of the shared release-notes package (synced from its own repo, never edited here) |
 
 Tests: `circles_test.go` (fake database `fakeDB` and directory `fakeDir`, `testServer`, `get`,

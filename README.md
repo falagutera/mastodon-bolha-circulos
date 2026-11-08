@@ -186,4 +186,4 @@ Changing the code, with or without a coding agent: [`AGENTS.md`](AGENTS.md) has 
 (including the ranking test against a throwaway PostgreSQL), a map of the files and the rules a
 change must keep.
 
-AGPL-3.0, as is the project it comes from. Fonts are IBM Plex (OFL) and Go fonts (BSD).
+AGPL-3.0, as is the project it comes from. The PNG is drawn with IBM Plex (OFL) and Go fonts (BSD); the page uses system fonts.

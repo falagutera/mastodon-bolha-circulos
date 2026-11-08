@@ -1,8 +1,9 @@
 {{template "head" .}}
   <h1>{{printf .T.result .Circle.Self.DisplayName}}</h1>
   <p class="lede"><a href="{{.Circle.Self.URL}}" rel="noopener">@{{.Circle.Self.Acct}}</a></p>
-</header>
+</section>
 <main class="result">
+  <div class="card frame">
   <svg class="circle" viewBox="0 0 1600 1000" role="img" aria-label="{{printf .T.result .Circle.Self.DisplayName}}">
     <image href="/circle.png" width="1600" height="1000"/>
     {{range .Circle.Spots}}<a class="spot" href="{{.URL}}" rel="noopener nofollow" aria-label="{{.Acct}}">
@@ -10,14 +11,15 @@
       <g class="tip"><rect x="{{.TipX}}" y="{{.TipY}}" width="{{.TipW}}" height="{{.TipH}}" rx="10"/><text x="{{.TextX}}" y="{{.TextY}}">{{.Acct}}</text></g>
     </a>
     {{end}}</svg>
+  </div>
   <div class="actions">
-    <a class="button" href="/circle.png" download="circle-{{.Circle.Self.Username}}.png">{{.T.download}}</a>
-    <a class="button" href="/share">{{.T.share}}</a>
+    <a class="btn" href="/circle.png" download="circle-{{.Circle.Self.Username}}.png">{{.T.download}}</a>
+    <a class="btn secondary" href="/share">{{.T.share}}</a>
     <form method="post" action="/logout"><button class="plain" type="submit">{{.T.logout}}</button></form>
   </div>
   {{$t := .T}}{{$any := false}}
-  {{range .Circle.Rings}}{{if .People}}{{$any = true}}<section class="ring">
-    <h2>{{index $t .Name}} <span class="count">{{len .People}}</span></h2>
+  {{range .Circle.Rings}}{{if .People}}{{$any = true}}<div class="cat"><h2>{{index $t .Name}} <span class="count">{{len .People}}</span></h2><div class="rule"></div></div>
+  <section class="card ring">
     <ol>{{range .People}}
       <li><a class="name" href="{{.URL}}" rel="noopener nofollow">{{.DisplayName}}</a><span class="handle">@{{.Acct}}</span></li>{{end}}
     </ol>

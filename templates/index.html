@@ -1,10 +1,10 @@
 {{template "head" .}}
-  <h1>{{.T.title}}</h1>
+  <h1>{{.T.hero_a}} <em>{{.T.hero_b}}</em></h1>
   <p class="lede">{{printf .T.lede .Domain}}</p>
-</header>
+  <p><a class="btn" href="/login">{{.T.login_button}}</a></p>
+</section>
 <main>
   {{if .Message}}<p class="error" role="alert">{{.Message}}</p>{{end}}
-  <p><a class="button" href="/login">{{.T.login_button}}</a></p>
   <p class="note">{{.T.privacy}}</p>
 </main>
 {{template "foot" .}}
