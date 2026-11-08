@@ -6,6 +6,65 @@ A person signs in with their account and gets three rings of the people who inte
 
 It's a rewrite in Go of [Fedi Circle Creator](https://github.com/AMNatty/Mastodon-Circles), which itself comes from [andigandhi/Mastodon-Circles](https://github.com/andigandhi/Mastodon-Circles). The original runs in the browser and makes around 200 API calls per circle. This one asks the database once.
 
+## Testing and security
+
+circles reads the Mastodon database, which also holds private keys, e-mails and direct messages, and fetches avatars from other servers. So it is tested against what would hurt: showing someone else's circle, counting posts an anonymous visitor can't see, needing more than the column grants below, and being used to reach internal addresses. What is done today (2026-11-08):
+
+**Every pipeline.** GitLab CI ([`.gitlab-ci.yml`](.gitlab-ci.yml), plus the shared security stage from `open/gcn/ci-templates`, file `security.yml`). The test job runs on every pipeline; the security stage runs on every merge request and every push to `main`; the image is built and published only from `main`.
+
+- Blocking (the pipeline fails and no image is published):
+  - `go vet`, a `gofmt` check, and the full test suite, with a real PostgreSQL 17 for the ranking query;
+  - `govulncheck`: known vulnerabilities in Go code paths circles actually reaches (in the test job and in the security stage);
+  - `gitleaks`: secrets committed to the repository;
+  - `trivy`: critical vulnerabilities that have a fix, secrets and misconfigurations in the repository.
+- Informative (reported, not blocking): `semgrep`, `gosec`, `hadolint` (Dockerfile), `yamllint`, and `poutine` (security of the CI pipeline itself).
+
+**The test suite.** 25 tests (`go test -list`). The page tests run the real HTTP handlers against a fake database and a fake instance directory; one test runs the real ranking query on PostgreSQL (it skips without `CIRCLES_TEST_DB_HOST`; CI sets it). They cover:
+
+- privacy: anonymous visitors only get the sign-in page and never reach the database, forged or wrong-purpose cookies are refused, each person gets only their own circle, the person in the center is never replaced by someone else;
+- the ranking, on PostgreSQL: only public and unlisted posts count (no followers-only, direct, local-only, expiring or deleted post, no private reply), bots, suspended and limited accounts never appear, and the app starts and ranks as a role that has only the grants in step 1 of *Install*;
+- sign-in and sharing: PKCE and state, the sign-in token is revoked, nothing is posted before the person approves sharing, sign-out refuses other sites;
+- fetching avatars: private, loopback, link-local and CGNAT addresses are refused, broken or huge images are rejected or scaled down;
+- bounded work: concurrent builds, a panic costs one circle or one avatar and not the server;
+- the image and the page: ring sizes and positions, text fitting, both languages (the image carries text too), the release notes.
+
+**Reviews.** No penetration test or outside review has been run on circles yet. Hardening done by the project: on 2026-10-31, avatar fetching (https and public addresses only), builds, and how the database grants are checked; in 0.6.4, the findings of the updated linters (`gosec`, `semgrep`, `hadolint`).
+
+**Reporting a vulnerability.** Write to contato@gutocarvalho.net. Please don't open a public issue for it.
+
+## Architecture
+
+**Why it exists.** "Circle" images (who interacts with you the most) are popular on Mastodon, but the tools that make them run in the browser and make around 200 API calls per circle, against the instance and many others. When the instance runs its own copy, one database query does the same work, and the person's token isn't handed to a third-party site.
+
+**In plain words.**
+
+1. the person signs in with their account on the instance (OAuth, `profile` scope only); the token is used once to read the username, then revoked;
+2. circles runs one read-only query on the Mastodon database: who favourited, replied to or boosted the person's latest 70 public posts, and how often;
+3. it asks the instance's public API for the names and avatars of the closest 49 people, fetches the avatars, and draws the PNG;
+4. if the person wants to post it, the instance asks them to approve a second, short-lived token that publishes one post and is then revoked.
+
+**Components.**
+
+```
+            browser
+               |
+         circles (this app, no JavaScript)
+          |        |          \
+          |        |           +--> avatar servers (https, public addresses only)
+          |        |
+          |        +--> Mastodon PostgreSQL  (read-only role, column grants only, 5 s
+          |                                   statement timeout; pgbouncer works)
+          |
+          +--> the Mastodon instance
+                - OAuth sign-in (token revoked right away)
+                - public API: names and avatars
+                - optional: one post with the circle, after a separate approval
+```
+
+- Nothing is stored by circles: the session is a signed cookie (4 hours), and finished circles stay in memory for `CIRCLES_CACHE_TTL` (1 hour by default, at most 64 at once). No disk, no history.
+- The database role can read only the columns listed in step 1 of *Install*: no post text, e-mails, passwords, tokens or private keys.
+- Work is bounded: 2 circles built at once, 45 seconds each, 8 avatar fetches at once, 3 database connections.
+
 ## Install
 
 You need Docker, and network access from it to your Mastodon PostgreSQL.
