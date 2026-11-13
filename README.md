@@ -6,6 +6,12 @@ A person signs in with their account and gets three rings of the people who inte
 
 It's a rewrite in Go of [Fedi Circle Creator](https://github.com/AMNatty/Mastodon-Circles), which itself comes from [andigandhi/Mastodon-Circles](https://github.com/andigandhi/Mastodon-Circles). The original runs in the browser and makes around 200 API calls per circle. This one asks the database once.
 
+## Screenshot
+
+[![circles rendering a Mastodon circle](docs/screenshot.png)](https://circles.bolha.us)
+
+*A live instance at [circles.bolha.us](https://circles.bolha.us): the three rings and the list, PT/EN.*
+
 ## Testing and security
 
 circles reads the Mastodon database, which also holds private keys, e-mails and direct messages, and fetches avatars from other servers. So it is tested against what would hurt: showing someone else's circle, counting posts an anonymous visitor can't see, needing more than the column grants below, and being used to reach internal addresses. What is done today (2026-11-08):
