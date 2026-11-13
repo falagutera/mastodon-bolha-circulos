@@ -1,4 +1,4 @@
-module gitlab.gutocarvalho.net/open/bolha/circles
+module gitlab.gutocarvalho.net/open/bolha/circulos
 
 go 1.26.0
 

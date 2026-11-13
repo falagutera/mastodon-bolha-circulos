@@ -1,7 +1,11 @@
 # Changelog
 
-All notable changes to circles. Versions follow [SemVer](https://semver.org/); images are
+All notable changes to circulos. Versions follow [SemVer](https://semver.org/); images are
 published as `registry.gutocarvalho.net/images/circles:<version>-<build>`.
+
+## 0.8.1 — 2026-11-13
+
+- **The repository is now `open/bolha/circulos`** (the old path `open/bolha/circles` redirects), and the app calls itself circulos in the footer, the release notes and the docs. Settings (`CIRCLES_*`), the image (`images/circles`) and the cookies keep their names.
 
 ## 0.8.0 — 2026-11-13
 

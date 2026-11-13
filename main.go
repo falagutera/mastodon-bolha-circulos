@@ -1,4 +1,4 @@
-// circles draws the people closest to an account of a Mastodon instance, from
+// circulos draws the people closest to an account of a Mastodon instance, from
 // the instance's own database. See README.md.
 package main
 

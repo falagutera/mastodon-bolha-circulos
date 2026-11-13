@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	"gitlab.gutocarvalho.net/open/bolha/circles/internal/relnotes"
+	"gitlab.gutocarvalho.net/open/bolha/circulos/internal/relnotes"
 )
 
 type server struct {
@@ -47,7 +47,7 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /circle.png", s.handleImage)
 	mux.HandleFunc("GET /{$}", s.handleIndex)
 	mux.HandleFunc("GET /release-notes", s.handleNotes)
-	mux.Handle("GET /release-notes.json", relnotes.JSONHandler("circles", version, releases))
+	mux.Handle("GET /release-notes.json", relnotes.JSONHandler("circulos", version, releases))
 	return securityHeaders(mux)
 }
 

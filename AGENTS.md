@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Notes for coding agents (and people) changing circles. The README says what the app does and how
+Notes for coding agents (and people) changing circulos. The README says what the app does and how
 to install it; this file says how to change it without breaking the promises the README makes.
 
 ## What it is
