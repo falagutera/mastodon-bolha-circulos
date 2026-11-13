@@ -6,6 +6,15 @@ A person signs in with their account and gets three rings of the people who inte
 
 It's a rewrite in Go of [Fedi Circle Creator](https://github.com/AMNatty/Mastodon-Circles), which itself comes from [andigandhi/Mastodon-Circles](https://github.com/andigandhi/Mastodon-Circles). The original runs in the browser and makes around 200 API calls per circle. This one asks the database once.
 
+## Contents
+
+- [Screenshot](#screenshot)
+- [Testing and security](#testing-and-security)
+- [Architecture](#architecture)
+- [Install](#install)
+- [How it works](#how-it-works)
+- [Development](#development)
+
 ## Screenshot
 
 [![circles rendering a Mastodon circle](docs/screenshot.png)](https://circles.bolha.us)
