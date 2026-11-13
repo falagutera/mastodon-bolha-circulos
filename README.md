@@ -1,6 +1,6 @@
 # circles
 
-Draws the people closest to an account of a Mastodon instance: **circles.bolha.us**.
+Draws the people closest to an account of a Mastodon instance: **circulos.bolha.us** (Círculos; the old address circles.bolha.us redirects there).
 
 A person signs in with their account and gets three rings of the people who interacted the most with their latest public posts, as a PNG they can share, plus a list with links to each profile. Each person only sees their own circle. The people in it can be from anywhere, but only accounts of the instance can sign in. To offer it on your instance, run your own.
 
@@ -17,9 +17,9 @@ It's a rewrite in Go of [Fedi Circle Creator](https://github.com/AMNatty/Mastodo
 
 ## Screenshot
 
-[![circles rendering a Mastodon circle](docs/screenshot.png)](https://circles.bolha.us)
+[![circles rendering a Mastodon circle](docs/screenshot.png)](https://circulos.bolha.us)
 
-*A live instance at [circles.bolha.us](https://circles.bolha.us): the three rings and the list, PT/EN.*
+*A live instance at [circulos.bolha.us](https://circulos.bolha.us): the three rings and the list, PT/EN.*
 
 ## Testing and security
 

@@ -3,6 +3,10 @@
 All notable changes to circles. Versions follow [SemVer](https://semver.org/); images are
 published as `registry.gutocarvalho.net/images/circles:<version>-<build>`.
 
+## 0.8.0 — 2026-11-13
+
+- **New address and name: circulos.bolha.us, "Círculos"** (same in PT and EN). The old address circles.bolha.us redirects there.
+
 ## 0.7.0 — 2026-11-08
 
 The bolha.io look, shared with the other tools.

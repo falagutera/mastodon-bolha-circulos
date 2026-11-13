@@ -171,7 +171,7 @@ func (fakeDir) people(_ context.Context, ids []int64) ([]person, error) {
 func testServer(t *testing.T, instance string) (*server, *httptest.Server, *fakeDB) {
 	t.Helper()
 	db := &fakeDB{}
-	cfg := config{domain: "bolha.us", lang: "pt", cacheTTL: time.Hour, instance: instance, baseURL: "https://circles.bolha.us",
+	cfg := config{domain: "bolha.us", lang: "pt", cacheTTL: time.Hour, instance: instance, baseURL: "https://circulos.bolha.us",
 		clientID: "id", clientSecret: "secret", secret: []byte(strings.Repeat("k", 32))}
 	b := newBuilder(db, fakeDir{}, cfg)
 	b.fetch = func(context.Context, string) *avatar { return nil }
